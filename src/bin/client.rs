@@ -1,10 +1,16 @@
-use std::net::{TcpStream};
+use std::net::TcpStream;
 use std::io::{Read, Write};
-use mqtt_broker::packets::{connect::ConnectPacket,
-connack::ConnAckPacket};
+use mqtt_broker::packets::{
+    connect::ConnectPacket,
+    connack::ConnAckPacket,
+    publish::PublishPacket,  // Import for PUBLISH packets
+    puback::PubAckPacket,    // Import for PUBACK packets
+};
 
+/// Sends a CONNECT packet to the MQTT server.
+/// The CONNECT packet initiates the communication by providing client credentials and settings.
 fn send_connect_packet(mut stream: TcpStream) {
-    // Crear el paquete CONNECT
+    // Create the CONNECT packet with necessary details
     let connect_packet = ConnectPacket::new(
         "MQTT".to_string(),  // Nombre del protocolo
         5,                  // Nivel del protocolo
@@ -17,28 +23,30 @@ fn send_connect_packet(mut stream: TcpStream) {
         Some("password".to_string()), // Password (opcional)
     );
 
-    // Codificar el paquete CONNECT
+    // Encode the CONNECT packet into bytes for transmission
     let packet = connect_packet.encode();
 
-    // Enviar el paquete CONNECT al servidor
+    // Send the CONNECT packet to the server
     match stream.write(&packet) {
-        Ok(_) => println!("Paquete CONNECT enviado: {:?}", connect_packet),
-        Err(e) => eprintln!("Error al enviar CONNECT: {}", e),
+        Ok(_) => println!("CONNECT packet sent: {:?}", connect_packet),
+        Err(e) => eprintln!("Failed to send CONNECT: {}", e),
     }
 }
 
+/// Receives and decodes a CONNACK packet from the server.
+/// The CONNACK packet confirms whether the connection was successful or not.
 fn receive_connack_packet(mut stream: TcpStream) {
     let mut buffer = [0u8; 1024];
 
-    // Leer respuesta del servidor (paquete CONNACK)
+    // Read the server's response, expecting a CONNACK packet
     match stream.read(&mut buffer) {
         Ok(size) if size > 0 => {
-            // Decodificar el paquete CONNACK
+            // Decode the CONNACK packet
             match ConnAckPacket::decode(&buffer[0..size]) {
                 Ok(connack_packet) => {
-                    println!("Recibido paquete CONNACK: {:?}", connack_packet);
+                    println!("Received CONNACK packet: {:?}", connack_packet);
                 }
-                Err(e) => eprintln!("Error al decodificar CONNACK: {}", e),
+                Err(e) => eprintln!("Failed to decode CONNACK: {}", e),
             }
         }
         Ok(_) => eprintln!("Recibido paquete vacío"),
@@ -46,10 +54,12 @@ fn receive_connack_packet(mut stream: TcpStream) {
     }
 }
 
+/// Establishes a connection with the MQTT server and handles CONNECT, PUBLISH, and PUBACK packets.
 fn start_client() {
+    // Connect to the MQTT server at localhost on port 1883
     match TcpStream::connect("127.0.0.1:1883") {
         Ok(stream) => {
-            println!("Conectado al servidor MQTT en 127.0.0.1:1883");
+            println!("Connected to MQTT server at 127.0.0.1:1883");
 
             // Enviar paquete CONNECT
             send_connect_packet(stream.try_clone().expect("Error al clonar stream"));
@@ -57,10 +67,12 @@ fn start_client() {
             // Recibir y procesar el paquete CONNACK
             receive_connack_packet(stream);
         }
-        Err(e) => eprintln!("No se pudo conectar al servidor: {}", e),
+        Err(e) => eprintln!("Failed to connect to server: {}", e),
     }
 }
 
+/// Entry point for the MQTT client.
+/// Calls the `start_client` function to begin communication.
 fn main() {
     start_client();
 }

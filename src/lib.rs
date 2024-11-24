@@ -4,8 +4,9 @@ pub mod packets;
 pub use packets::{
     connect::ConnectPacket,
     connack::ConnAckPacket,
-    /*
-    publish::{PublishPacket, PubAckPacket, PubRecPacket, PubRelPacket, PubCompPacket},
+    
+    publish::PublishPacket,
+    puback:: PubAckPacket, /*PubRecPacket, PubRelPacket, PubCompPacket},
     subscribe::{SubscribePacket, UnsubscribePacket},
     suback::{SubAckPacket, UnsubAckPacket},
     ping::{PingReqPacket, PingRespPacket},
@@ -18,8 +19,8 @@ pub use packets::{
 pub enum MqttPacket {
     Connect(ConnectPacket),         // Packet ID: 1
     ConnAck(ConnAckPacket),         // Packet ID: 2
-    /*Publish(PublishPacket),         // Packet ID: 3
-    PubAck(PubAckPacket),           // Packet ID: 4
+    Publish(PublishPacket),         // Packet ID: 3
+    PubAck(PubAckPacket),/*           // Packet ID: 4
     PubRec(PubRecPacket),           // Packet ID: 5
     PubRel(PubRelPacket),           // Packet ID: 6
     PubComp(PubCompPacket),         // Packet ID: 7
