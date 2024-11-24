@@ -157,7 +157,7 @@ impl ConnAckPacket {
     /// Decodes a CONNACK packet from bytes.
     pub fn decode(data: &[u8]) -> Result<Self, String> {
         let mut cursor = std::io::Cursor::new(data);
-
+        cursor.set_position(2);
         // Read session present flag
         let session_present = match cursor.read_u8().map_err(|e| e.to_string())? {
             0 => false,

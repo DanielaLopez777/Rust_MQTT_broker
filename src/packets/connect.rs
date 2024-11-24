@@ -175,7 +175,8 @@ impl ConnectPacket {
     /// This function returns a result containing either a decoded `ConnectPacket` or an error if decoding fails.
     pub fn decode(data: &[u8]) -> Result<Self, String> {
         let mut cursor = std::io::Cursor::new(data);
-        
+        cursor.set_position(2);
+ 
         // Read protocol name length and name
         let protocol_name_len = cursor.read_u16::<BigEndian>().map_err(|e| e.to_string())? as usize;
         let mut protocol_name = vec![0; protocol_name_len];
