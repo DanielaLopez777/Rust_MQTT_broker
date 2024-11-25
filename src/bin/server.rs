@@ -3,12 +3,11 @@ use std::io::{Read, Write};
 use mqtt_broker::packets::{
     connect::ConnectPacket,
     connack::{ConnAckPacket, ConnAckReasonCode},
-    publish::PublishPacket,  // Import for handling PUBLISH packets
-    puback::PubAckPacket,    // Import for sending PUBACK packets
+    publish::PublishPacket,  
+    puback::PubAckPacket,    
 };
 
-/// Handles communication with a connected MQTT client.
-/// Processes CONNECT, PUBLISH, and PUBACK packet flows.
+/// Handles communication with a connected MQTT client an all its processes.
 fn handle_client(mut stream: TcpStream) {
     let mut buffer = [0u8; 1024];
 
@@ -18,34 +17,34 @@ fn handle_client(mut stream: TcpStream) {
             // Attempt to decode the CONNECT packet
             match ConnectPacket::decode(&buffer[0..size]) {
                 Ok(connect_packet) => {
-                    println!("Received CONNECT packet: {:?}", connect_packet);
+                    println!("Received CONNECT packet: {:?}\n\n", connect_packet);
 
                     // Create a CONNACK packet as a response
-                    let connack_packet = ConnAckPacket {
+                    let connack_packet = ConnAckPacket::new( 
                         session_present: false,
                         reason_code: ConnAckReasonCode::Success,
                         properties: None,
-                    };
+                    );
 
                     // Encode the CONNACK packet
                     let response = connack_packet.encode();
 
                     // Send the CONNACK packet back to the client
                     match stream.write(&response) {
-                        Ok(_) => println!("Enviado paquete CONNACK: {:?}", connack_packet),
-                        Err(e) => eprintln!("Error al enviar CONNACK: {}", e),
+                        Ok(_) => println!("Sent CONNACK package: {:?}", connack_packet),
+                        Err(e) => eprintln!("Error sending the CONNACK package: {}", e),
             }
                 },
-                Err(e) => eprintln!("Error al decodificar CONNECT: {}", e),
+                Err(e) => eprintln!("Error decoding CONNECT: {}", e),
                         }
         },
-        Ok(_) => eprintln!("Recibido paquete vacío"),
-        Err(e) => eprintln!("Error al leer del stream: {}", e),
+        Ok(_) => eprintln!("Empty package received"),
+        Err(e) => eprintln!("Error reading the stream: {}", e),
     }
 }
 
 fn start_server() {
-    let listener = TcpListener::bind("127.0.0.1:1883").expect("Error al iniciar el servidor");
+    let listener = TcpListener::bind("127.0.0.1:1883").expect("Error starting the server");
     println!("Servidor MQTT en 127.0.0.1:1883");
 
     // Accept and handle incoming client connections
@@ -55,7 +54,7 @@ fn start_server() {
                 println!("Client connected: {:?}", stream.peer_addr());
                 handle_client(stream);
             },
-            Err(e) => eprintln!("Error al aceptar conexión: {}", e),
+            Err(e) => eprintln!("Error accepting connection: {}", e),
         }
     }
 }

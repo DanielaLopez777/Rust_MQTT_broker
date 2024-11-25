@@ -2,7 +2,7 @@
 
 /* 
 The CONNECT packet is used to establish a connection between a client and a broker.
- This packet includes several fields that identify the client, specify connection settings,
+This packet includes several fields that identify the client, specify connection settings,
      and allow for the broker to acknowledge the connection.
 */
 
@@ -175,21 +175,24 @@ impl ConnectPacket {
     /// This function returns a result containing either a decoded `ConnectPacket` or an error if decoding fails.
     pub fn decode(data: &[u8]) -> Result<Self, String> {
         let mut cursor = std::io::Cursor::new(data);
+        //Move two places due to the fixed header
         cursor.set_position(2);
  
-        // Read protocol name length and name
+        // Extracts the protocol name length 
         let protocol_name_len = cursor.read_u16::<BigEndian>().map_err(|e| e.to_string())? as usize;
+        //Sets a mut vector of the size extracted
         let mut protocol_name = vec![0; protocol_name_len];
+        //Parse the name into a string and saves it into the mut vector
         cursor.read_exact(&mut protocol_name).map_err(|e| e.to_string())?;
         let protocol_name = String::from_utf8(protocol_name).map_err(|e| e.to_string())?;
 
-        // Read protocol level
+        // Extract the protocol level
         let protocol_level = cursor.read_u8().map_err(|e| e.to_string())?;
 
-        // Read connect flags
+        // Extract the connect flags
         let connect_flags = cursor.read_u8().map_err(|e| e.to_string())?;
 
-        // Read keep alive time
+        // Extract keep alive time
         let keep_alive = cursor.read_u16::<BigEndian>().map_err(|e| e.to_string())?;
 
         // Read client ID length and value
@@ -233,6 +236,7 @@ impl ConnectPacket {
             password = Some(String::from_utf8(password_bytes).map_err(|e| e.to_string())?);
         }
 
+        //Return the connect packet with the parsed information
         Ok(ConnectPacket {
             protocol_name,
             protocol_level,

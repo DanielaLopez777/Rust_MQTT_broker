@@ -1,10 +1,8 @@
-// connack.rs
-
 /// MQTT ConnAck packet implementation for MQTT version 5.0.
-///
-/// The CONNACK packet is sent by the broker in response to a CONNECT packet from the client.
-/// It indicates the success or failure of the connection attempt and provides additional
-/// properties as per MQTT 5.0.
+/*
+The CONNACK packet is sent by the broker in response to a CONNECT packet from the client.
+It indicates the success or failure of the connection attempt and provides additional
+ properties as per MQTT 5.0. */
 
 use std::io::{Read};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -97,6 +95,18 @@ pub struct ConnAckProperties {
 }
 
 impl ConnAckPacket {
+    // Constructor for a ConnectPacket, with all fields as parameters
+    pub fn new(
+        pub session_present: bool,          
+        pub reason_code: ConnAckReasonCode, 
+        pub properties: Option<ConnAckProperties>, 
+    ) -> Self {
+        ConnectPacket {
+            session_present,
+            reason_code,
+            properties,
+        }
+    }
     /// Encodes the CONNACK packet into bytes.
     pub fn encode(&self) -> Vec<u8> {
         let mut packet = Vec::new();
@@ -177,16 +187,16 @@ impl ConnAckPacket {
             cursor.read_exact(&mut properties_data).map_err(|e| e.to_string())?;
             // Decode properties (similar to encoding logic)
             properties = Some(ConnAckProperties {
-                session_expiry_interval: None, // Decode as needed
-                receive_maximum: None,        // Decode as needed
-                maximum_packet_size: None,    // Decode as needed
-                assigned_client_identifier: None, // Decode as needed
-                reason_string: None,          // Decode as needed
-                server_keep_alive: None,      // Decode as needed
-                response_information: None,   // Decode as needed
-                server_reference: None,       // Decode as needed
-                authentication_method: None,  // Decode as needed
-                authentication_data: None,    // Decode as needed
+                session_expiry_interval: None, 
+                receive_maximum: None,        
+                maximum_packet_size: None,    
+                assigned_client_identifier: None, 
+                reason_string: None,          
+                server_keep_alive: None,      
+                response_information: None,   
+                server_reference: None,       
+                authentication_method: None,  
+                authentication_data: None,    
             });
         }
 

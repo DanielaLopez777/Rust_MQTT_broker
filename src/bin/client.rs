@@ -3,8 +3,8 @@ use std::io::{Read, Write};
 use mqtt_broker::packets::{
     connect::ConnectPacket,
     connack::ConnAckPacket,
-    publish::PublishPacket,  // Import for PUBLISH packets
-    puback::PubAckPacket,    // Import for PUBACK packets
+    publish::PublishPacket,  
+    puback::PubAckPacket,    
 };
 
 /// Sends a CONNECT packet to the MQTT server.
@@ -12,15 +12,15 @@ use mqtt_broker::packets::{
 fn send_connect_packet(mut stream: TcpStream) {
     // Create the CONNECT packet with necessary details
     let connect_packet = ConnectPacket::new(
-        "MQTT".to_string(),  // Nombre del protocolo
-        5,                  // Nivel del protocolo
-        0b00000010,         // Flags (Clean Session habilitado)
-        60,                 // Keep Alive (en segundos)
-        "client1".to_string(), // ID del cliente
-        None,               // Will Topic
-        None,               // Will Message
-        Some("user".to_string()), // Username (opcional)
-        Some("password".to_string()), // Password (opcional)
+        "MQTT".to_string(),  // Protocol name
+        5,                  // Protocol level (5 for MQTT)
+        0b00000010,         // Flags (Clean Session enabled)
+        60,                 // Keep Alive (in senconds)
+        "client1".to_string(), //Client id
+        None,               // Optional Will Topic
+        None,               // Optional Will Message
+        Some("user".to_string()), // Optional Username 
+        Some("password".to_string()), // Optional Password 
     );
 
     // Encode the CONNECT packet into bytes for transmission
@@ -49,8 +49,8 @@ fn receive_connack_packet(mut stream: TcpStream) {
                 Err(e) => eprintln!("Failed to decode CONNACK: {}", e),
             }
         }
-        Ok(_) => eprintln!("Recibido paquete vacío"),
-        Err(e) => eprintln!("Error al leer del stream: {}", e),
+        Ok(_) => eprintln!("Empty package received"),
+        Err(e) => eprintln!("Error reading the stream: {}", e),
     }
 }
 
@@ -61,10 +61,10 @@ fn start_client() {
         Ok(stream) => {
             println!("Connected to MQTT server at 127.0.0.1:1883");
 
-            // Enviar paquete CONNECT
-            send_connect_packet(stream.try_clone().expect("Error al clonar stream"));
+            //Send the connect package via the stream
+            send_connect_packet(stream.try_clone().expect("Error clonning the stream"));
 
-            // Recibir y procesar el paquete CONNACK
+            //Receive the response
             receive_connack_packet(stream);
         }
         Err(e) => eprintln!("Failed to connect to server: {}", e),
