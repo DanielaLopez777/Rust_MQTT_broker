@@ -97,11 +97,11 @@ pub struct ConnAckProperties {
 impl ConnAckPacket {
     // Constructor for a ConnectPacket, with all fields as parameters
     pub fn new(
-        pub session_present: bool,          
-        pub reason_code: ConnAckReasonCode, 
-        pub properties: Option<ConnAckProperties>, 
+        session_present: bool,          
+        reason_code: ConnAckReasonCode, 
+        properties: Option<ConnAckProperties>, 
     ) -> Self {
-        ConnectPacket {
+        ConnAckPacket {
             session_present,
             reason_code,
             properties,

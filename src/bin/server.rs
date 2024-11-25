@@ -12,18 +12,22 @@ fn handle_client(mut stream: TcpStream) {
     let mut buffer = [0u8; 1024];
 
     // Read data from the client (expecting a CONNECT packet first)
-    match stream.read(&mut buffer) {
-        Ok(size) if size > 0 => {
+    match stream.read(&mut buffer) 
+    {
+        Ok(size) if size > 0 => 
+        {
             // Attempt to decode the CONNECT packet
-            match ConnectPacket::decode(&buffer[0..size]) {
-                Ok(connect_packet) => {
+            match ConnectPacket::decode(&buffer[0..size]) 
+            {
+                Ok(connect_packet) => 
+                {
                     println!("Received CONNECT packet: {:?}\n\n", connect_packet);
 
                     // Create a CONNACK packet as a response
                     let connack_packet = ConnAckPacket::new( 
-                        session_present: false,
-                        reason_code: ConnAckReasonCode::Success,
-                        properties: None,
+                        false,
+                        ConnAckReasonCode::Success,
+                        None,
                     );
 
                     // Encode the CONNACK packet
@@ -31,30 +35,30 @@ fn handle_client(mut stream: TcpStream) {
 
                     // Send the CONNACK packet back to the client
                     match stream.write(&response) {
-                        Ok(_) => println!("Sent CONNACK package: {:?}", connack_packet),
-                        Err(e) => eprintln!("Error sending the CONNACK package: {}", e),
-            }
+                        Ok(_) => println!("Sent CONNACK package: {:?}\n\n", connack_packet),
+                        Err(e) => eprintln!("Error sending the CONNACK package: {}\n\n", e),
+                    }
                 },
-                Err(e) => eprintln!("Error decoding CONNECT: {}", e),
-                        }
+                Err(e) => eprintln!("Error decoding CONNECT: {}\n\n", e),
+            }
         },
-        Ok(_) => eprintln!("Empty package received"),
-        Err(e) => eprintln!("Error reading the stream: {}", e),
+        Ok(_) => eprintln!("Empty package received\n\n"),
+        Err(e) => eprintln!("Error reading the stream: {}\n\n", e),
     }
 }
 
 fn start_server() {
     let listener = TcpListener::bind("127.0.0.1:1883").expect("Error starting the server");
-    println!("Servidor MQTT en 127.0.0.1:1883");
+    println!("Servidor MQTT en 127.0.0.1:1883\n\n");
 
     // Accept and handle incoming client connections
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                println!("Client connected: {:?}", stream.peer_addr());
+                println!("Client connected: {:?}\n\n", stream.peer_addr());
                 handle_client(stream);
             },
-            Err(e) => eprintln!("Error accepting connection: {}", e),
+            Err(e) => eprintln!("Error accepting connection: {}\n\n", e),
         }
     }
 }
