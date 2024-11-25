@@ -1,5 +1,6 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::{Read, Write};
+use std::thread;
 use mqtt_broker::packets::{
     connect::ConnectPacket,
     connack::{ConnAckPacket, ConnAckReasonCode},
@@ -7,7 +8,7 @@ use mqtt_broker::packets::{
     puback::PubAckPacket,    
 };
 
-/// Handles communication with a connected MQTT client an all its processes.
+/// Handles communication with a connected MQTT client and all its processes.
 fn handle_client(mut stream: TcpStream) {
     let mut buffer = [0u8; 1024];
 
@@ -24,7 +25,7 @@ fn handle_client(mut stream: TcpStream) {
                     println!("Received CONNECT packet: {:?}\n\n", connect_packet);
 
                     // Create a CONNACK packet as a response
-                    let connack_packet = ConnAckPacket::new( 
+                    let connack_packet = ConnAckPacket::new(
                         false,
                         ConnAckReasonCode::Success,
                         None,
@@ -47,6 +48,7 @@ fn handle_client(mut stream: TcpStream) {
     }
 }
 
+/// Starts the server and handles incoming client connections concurrently.
 fn start_server() {
     let listener = TcpListener::bind("127.0.0.1:1883").expect("Error starting the server");
     println!("Servidor MQTT en 127.0.0.1:1883\n\n");
@@ -56,8 +58,12 @@ fn start_server() {
         match stream {
             Ok(stream) => {
                 println!("Client connected: {:?}\n\n", stream.peer_addr());
-                handle_client(stream);
-            },
+
+                // Spawn a new thread to handle the client
+                thread::spawn(move || {
+                    handle_client(stream);
+                });
+            }
             Err(e) => eprintln!("Error accepting connection: {}\n\n", e),
         }
     }
