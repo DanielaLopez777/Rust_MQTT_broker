@@ -1,76 +1,101 @@
+use std::sync::{Arc, Mutex};
 use std::net::{TcpListener, TcpStream};
-use std::io::{Read, Write};
 use std::thread;
+use std::io::{Read, Write};
 use mqtt_broker::packets::{
     connect::ConnectPacket,
     connack::{ConnAckPacket, ConnAckReasonCode},
-    publish::PublishPacket,  
-    puback::PubAckPacket,    
+    publish::PublishPacket,
 };
 
-/// Handles communication with a connected MQTT client and all its processes.
-fn handle_client(mut stream: TcpStream) {
+fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>) {
+    let mut stream = stream;
     let mut buffer = [0u8; 1024];
 
-    // Read data from the client (expecting a CONNECT packet first)
-    match stream.read(&mut buffer) 
-    {
-        Ok(size) if size > 0 => 
-        {
-            // Attempt to decode the CONNECT packet
-            match ConnectPacket::decode(&buffer[0..size]) 
-            {
-                Ok(connect_packet) => 
-                {
-                    println!("Received CONNECT packet: {:?}\n\n", connect_packet);
+    loop {
+        match stream.read(&mut buffer) {
+            Ok(size) if size > 0 => {
+                if let Ok(packet) = PublishPacket::decode(&buffer[..size]) {
+                    println!("Recibido paquete PUBLISH: {:?}", packet);
 
-                    // Create a CONNACK packet as a response
-                    let connack_packet = ConnAckPacket::new(
-                        false,
-                        ConnAckReasonCode::Success,
-                        None,
-                    );
-
-                    // Encode the CONNACK packet
-                    let response = connack_packet.encode();
-
-                    // Send the CONNACK packet back to the client
-                    match stream.write(&response) {
-                        Ok(_) => println!("Sent CONNACK package: {:?}\n\n", connack_packet),
-                        Err(e) => eprintln!("Error sending the CONNACK package: {}\n\n", e),
+                    let encoded_packet = packet.encode();
+                    let clients_guard = clients.lock().unwrap();
+                    for mut client in clients_guard.iter() { // Cambiado a mut client
+                        if client.peer_addr().unwrap() != stream.peer_addr().unwrap() {
+                            let _ = client.write(&encoded_packet);
+                        }
                     }
-                },
-                Err(e) => eprintln!("Error decoding CONNECT: {}\n\n", e),
+                } else {
+                    match ConnectPacket::decode(&buffer[0..size]) {
+                        Ok(connect_packet) => {
+                            println!("Received CONNECT packet: {:?}\n\n", connect_packet);
+
+                            let connack_packet = ConnAckPacket::new(
+                                false,
+                                ConnAckReasonCode::Success,
+                                None,
+                            );
+
+                            let response = connack_packet.encode();
+
+                            match stream.write(&response) {
+                                Ok(_) => println!("Sent CONNACK package: {:?}\n\n", connack_packet),
+                                Err(e) => eprintln!("Error sending the CONNACK package: {}\n\n", e),
+                            }
+                        }
+                        Err(e) => eprintln!("Error decoding CONNECT: {}\n\n", e),
+                    }
+                }
             }
-        },
-        Ok(_) => eprintln!("Empty package received\n\n"),
-        Err(e) => eprintln!("Error reading the stream: {}\n\n", e),
+            Ok(_) => {
+                println!("Cliente desconectado: {:?}", stream.peer_addr());
+                break;
+            }
+            Err(e) => {
+                println!("Error al leer del stream: {}", e);
+                break;
+            }
+        }
+    }
+
+    let mut clients_guard = clients.lock().unwrap();
+    if let Some(pos) = clients_guard.iter().position(|x| {
+        match x.peer_addr() {
+            Ok(addr) => addr == stream.peer_addr().unwrap_or_else(|_| "0.0.0.0:0".parse().unwrap()), // Reemplazar con dirección predeterminada si hay error
+            Err(_) => false, // Si hay un error, no se puede comparar
+        }
+    }) {
+        clients_guard.remove(pos);
     }
 }
 
-/// Starts the server and handles incoming client connections concurrently.
-fn start_server() {
-    let listener = TcpListener::bind("127.0.0.1:1883").expect("Error starting the server");
-    println!("Servidor MQTT en 127.0.0.1:1883\n\n");
 
-    // Accept and handle incoming client connections
+fn start_server() {
+    let listener = TcpListener::bind("127.0.0.1:1883").expect("Error iniciando el servidor");
+    println!("Servidor MQTT iniciado en 127.0.0.1:1883");
+
+    let clients: Arc<Mutex<Vec<TcpStream>>> = Arc::new(Mutex::new(Vec::new()));
+
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                println!("Client connected: {:?}\n\n", stream.peer_addr());
+                println!("Cliente conectado: {:?}", stream.peer_addr());
 
-                // Spawn a new thread to handle the client
+                let mut clients_guard = clients.lock().unwrap();
+                clients_guard.push(stream.try_clone().unwrap());
+
+                let clients_clone = Arc::clone(&clients);
                 thread::spawn(move || {
-                    handle_client(stream);
+                    handle_client(stream, clients_clone);
                 });
             }
-            Err(e) => eprintln!("Error accepting connection: {}\n\n", e),
+            Err(e) => {
+                println!("Error aceptando conexión: {}", e);
+            }
         }
     }
 }
 
-/// Entry point for the MQTT server application.
-/// Calls the `start_server` function to begin listening for client connections.
 fn main() {
     start_server();
 }
