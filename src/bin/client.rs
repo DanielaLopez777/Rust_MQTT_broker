@@ -9,7 +9,8 @@ use mqtt_broker::packets::{
 
 /// Sends a CONNECT packet to the MQTT server.
 /// The CONNECT packet initiates the communication by providing client credentials and settings.
-fn send_connect_packet(mut stream: TcpStream) {
+fn send_connect_packet(mut stream: TcpStream) 
+{
     // Create the CONNECT packet with necessary details
     let connect_packet = ConnectPacket::new(
         "MQTT".to_string(),  // Protocol name
@@ -35,15 +36,20 @@ fn send_connect_packet(mut stream: TcpStream) {
 
 /// Receives and decodes a CONNACK packet from the server.
 /// The CONNACK packet confirms whether the connection was successful or not.
-fn receive_connack_packet(mut stream: TcpStream) {
+fn receive_connack_packet(mut stream: TcpStream) 
+{
     let mut buffer = [0u8; 1024];
 
     // Read the server's response, expecting a CONNACK packet
-    match stream.read(&mut buffer) {
-        Ok(size) if size > 0 => {
+    match stream.read(&mut buffer) 
+    {
+        Ok(size) if size > 0 => 
+        {
             // Decode the CONNACK packet
-            match ConnAckPacket::decode(&buffer[0..size]) {
-                Ok(connack_packet) => {
+            match ConnAckPacket::decode(&buffer[0..size]) 
+            {
+                Ok(connack_packet) => 
+                {
                     println!("Received CONNACK packet: {:?}", connack_packet);
                 }
                 Err(e) => eprintln!("Failed to decode CONNACK: {}", e),
@@ -56,7 +62,8 @@ fn receive_connack_packet(mut stream: TcpStream) {
 
 /// Sends a PUBLISH packet to the server.
 /// The PUBLISH packet is used to send messages to other clients.
-fn send_publish_packet(mut stream: TcpStream, topic: &str, message: &str) {
+fn send_publish_packet(mut stream: TcpStream, topic: &str, message: &str) 
+{
     // Create the PUBLISH packet with the provided topic and message
     let publish_packet = PublishPacket::new(
         topic.to_string(),         // Topic
@@ -71,7 +78,8 @@ fn send_publish_packet(mut stream: TcpStream, topic: &str, message: &str) {
     let packet = publish_packet.encode();
 
     // Send the PUBLISH packet to the server
-    match stream.write(&packet) {
+    match stream.write(&packet) 
+    {
         Ok(_) => println!("PUBLISH packet sent: {:?}", publish_packet),
         Err(e) => eprintln!("Failed to send PUBLISH: {}", e),
     }
@@ -79,15 +87,20 @@ fn send_publish_packet(mut stream: TcpStream, topic: &str, message: &str) {
 
 /// Receives and decodes a PUBACK packet from the server.
 /// The PUBACK packet acknowledges the receipt of a message with QoS 1.
-fn receive_puback_packet(mut stream: TcpStream) {
+fn receive_puback_packet(mut stream: TcpStream) 
+{
     let mut buffer = [0u8; 1024];
 
     // Read the server's response, expecting a PUBACK packet
-    match stream.read(&mut buffer) {
-        Ok(size) if size > 0 => {
+    match stream.read(&mut buffer) 
+    {
+        Ok(size) if size > 0 => 
+        {
             // Decode the PUBACK packet
-            match PubAckPacket::decode(&buffer[0..size]) {
-                Ok(puback_packet) => {
+            match PubAckPacket::decode(&buffer[0..size]) 
+            {
+                Ok(puback_packet) => 
+                {
                     println!("Received PUBACK packet: {:?}", puback_packet);
                 }
                 Err(e) => eprintln!("Failed to decode PUBACK: {}", e),
@@ -99,7 +112,8 @@ fn receive_puback_packet(mut stream: TcpStream) {
 }
 
 /// Establishes a connection with the MQTT server and handles CONNECT, PUBLISH, and PUBACK packets.
-fn start_client() {
+fn start_client() 
+{
     // Connect to the MQTT server at localhost on port 1883
     match TcpStream::connect("127.0.0.1:1883") {
         Ok(stream) => {
@@ -115,7 +129,7 @@ fn start_client() {
             send_publish_packet(stream.try_clone().expect("Error cloning the stream"), "test/topic", "Hello MQTT!");
 
             // Receive the PUBACK packet in response
-            receive_puback_packet(stream);
+            //receive_puback_packet(stream);
         }
         Err(e) => eprintln!("Failed to connect to server: {}", e),
     }
