@@ -102,7 +102,7 @@ fn receive_puback_packet(mut stream: TcpStream) {
 fn start_client() {
     // Connect to the MQTT server at localhost on port 1883
     match TcpStream::connect("127.0.0.1:1883") {
-        Ok(mut stream) => {
+        Ok(stream) => {
             println!("Connected to MQTT server at 127.0.0.1:1883");
 
             // Send the connect package via the stream

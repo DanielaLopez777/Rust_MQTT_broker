@@ -5,7 +5,7 @@ The PUBLISH packet is used to send messages from a client to a broker, or from a
 This packet includes the message content, topic name, and various flags that control the message's behavior.
 */
 
-use std::io::{Read, Write};
+use std::io::Read;
 use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
 
 /*

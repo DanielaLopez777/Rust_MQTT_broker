@@ -7,7 +7,6 @@
 /// The PUBACK packet includes the message identifier (Packet ID) to match the message it acknowledges.
 ///
 
-use std::io::{Write, Read};
 use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
 
 /*
