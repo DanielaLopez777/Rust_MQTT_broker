@@ -18,7 +18,7 @@ Implement traits for:
 // The Publish packet's structure defined in MQTT 5.0
 pub struct PublishPacket {
     pub topic_name: String,       // The topic to which the message is being sent
-    pub message_id: Option<u16>,  // The message ID (optional, only used for QoS 1 and 2)
+    pub message_id: u16,  // The message ID (optional, only used for QoS 1 and 2)
     pub qos: u8,                  // Quality of Service level (0, 1, or 2)
     pub retain: bool,             // Retain flag (whether the message should be retained by the broker)
     pub dup: bool,                // Duplicate delivery flag (for QoS 1 and 2)
@@ -29,7 +29,7 @@ impl PublishPacket {
     // Constructor for a PublishPacket, with all fields as parameters
     pub fn new(
         topic_name: String,
-        message_id: Option<u16>,
+        message_id: u16,
         qos: u8,
         retain: bool,
         dup: bool,
@@ -95,10 +95,7 @@ impl PublishPacket {
         packet.push(self.topic_name.len() as u8 & 0xFF); // Low byte of topic length
         packet.extend_from_slice(self.topic_name.as_bytes());
 
-        // Message ID: Add only if QoS > 0
-        if self.qos > 0 {
-            packet.write_u16::<BigEndian>(self.message_id.unwrap()).unwrap();
-        }
+        packet.write_u16::<BigEndian>(self.message_id).unwrap();
 
         // Payload: Add the actual message content
         packet.extend_from_slice(&self.payload);
@@ -131,13 +128,9 @@ impl PublishPacket {
         let retain = first_byte & 0x01 != 0;
         let dup = first_byte & 0x08 != 0;
 
-        // Read message ID (only for QoS > 0)
-        let message_id = if qos > 0 {
-            Some(cursor.read_u16::<BigEndian>().map_err(|e| e.to_string())?)
-        } else {
-            None
-        };
-
+        // Read message ID 
+        let message_id = cursor.read_u16::<BigEndian>().map_err(|e| e.to_string())?;
+    
         // Read the payload (remaining data)
         let mut payload = Vec::new();
         cursor.read_to_end(&mut payload).map_err(|e| e.to_string())?;

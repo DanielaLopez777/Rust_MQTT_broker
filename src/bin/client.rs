@@ -67,8 +67,8 @@ fn send_publish_packet(mut stream: TcpStream, topic: &str, message: &str)
     // Create the PUBLISH packet with the provided topic and message
     let publish_packet = PublishPacket::new(
         topic.to_string(),         // Topic
-        Some(1),                   // Message ID (Optional)
-        0,                         // QoS level 0 (At most once)
+        1,                   // Message ID (Optional)
+        1,                         // QoS level
         false,                     // Retain flag (not retained)
         false,                     // DUP flag (not a duplicate)
         message.as_bytes().to_vec(), // Payload (message content)
@@ -129,7 +129,7 @@ fn start_client()
             send_publish_packet(stream.try_clone().expect("Error cloning the stream"), "test/topic", "Hello MQTT!");
 
             // Receive the PUBACK packet in response
-            //receive_puback_packet(stream);
+            receive_puback_packet(stream);
         }
         Err(e) => eprintln!("Failed to connect to server: {}", e),
     }

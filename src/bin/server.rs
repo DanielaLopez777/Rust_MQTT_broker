@@ -6,6 +6,7 @@ use mqtt_broker::packets::{
     connect::ConnectPacket, // For handling MQTT CONNECT packets
     connack::{ConnAckPacket, ConnAckReasonCode}, // For creating CONNACK response packets
     publish::PublishPacket, // For handling MQTT PUBLISH packets
+    puback::PubAckPacket,
 };
 
 // Function to handle each connected client
@@ -20,11 +21,11 @@ fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>)
         Ok(size) if size > 0 => 
         {
             // Decode the received data as a CONNECT packet
-            match ConnectPacket::decode(&buffer[0..size]) 
-            {
+            match ConnectPacket::decode(&buffer[0..size])
+             {
                 Ok(connect_packet) => 
                 {
-                    println!("Received CONNECT packet: {:?}\n\n", connect_packet);
+                    println!("Received CONNECT packet: {:?}\n", connect_packet);
 
                     // Create a CONNACK packet as a response
                     let connack_packet = ConnAckPacket::new(
@@ -38,15 +39,15 @@ fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>)
                     // Send the CONNACK packet back to the client
                     match stream.write(&response) 
                     {
-                        Ok(_) => println!("Sent CONNACK package: {:?}\n\n", connack_packet),
+                        Ok(_) => println!("Sent CONNACK package: {:?}\n", connack_packet),
                         Err(e) => eprintln!("Error sending the CONNACK package: {}\n\n", e),
                     }
                 }
-                Err(e) => eprintln!("Error decoding CONNECT: {}\n\n", e), // Log decoding errors
+                Err(e) => eprintln!("Error decoding CONNECT: {}\n", e), // Log decoding errors
             }
         }
-        Ok(_) => println!("Client disconnected: {:?}", stream.peer_addr()), // Handle empty read (disconnection)
-        Err(e) => println!("Error reading from stream: {}", e), // Log reading errors
+        Ok(_) => println!("Client disconnected: {:?}\n", stream.peer_addr()), // Handle empty read (disconnection)
+        Err(e) => println!("Error reading from stream: {}\n", e), // Log reading errors
     }
 
     // Enter a loop to continuously read packets from the client
@@ -59,8 +60,16 @@ fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>)
                 // Decode the data as a PUBLISH packet
                 if let Ok(packet) = PublishPacket::decode(&buffer[..size]) 
                 {
-                    println!("Received PUBLISH packet: {:?}", packet);
+                    println!("Received PUBLISH packet: {:?}\n", packet);
 
+                    // Send PUBACK packet
+                    let puback_packet = PubAckPacket::new(packet.message_id);
+                    let puback_response = puback_packet.encode();
+                    match stream.write(&puback_response) {
+                        Ok(_) => println!("Sent PUBACK packet for message ID: {}\n", packet.message_id),
+                        Err(e) => eprintln!("Error sending PUBACK packet: {}\n", e),
+                    }
+                    
                     let encoded_packet = packet.encode(); // Encode the packet for broadcasting
                     let clients_guard = clients.lock().unwrap(); // Lock the shared client list
 
@@ -76,12 +85,12 @@ fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>)
             }
             Ok(_) => 
             {
-                println!("Client disconnected: {:?}", stream.peer_addr()); // Handle client disconnection
+                println!("Client disconnected: {:?}\n", stream.peer_addr()); // Handle client disconnection
                 break;
             }
             Err(e) => 
             {
-                println!("Error reading from stream: {}", e); // Log reading errors
+                println!("Error reading from stream: {}\n", e); // Log reading errors
                 break;
             }
         }
@@ -90,9 +99,9 @@ fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>)
     // Remove the disconnected client from the shared client list
     let mut clients_guard = clients.lock().unwrap();
     if let Some(pos) = clients_guard.iter().position(|x| 
-    {
-        match x.peer_addr() 
         {
+        match x.peer_addr()
+         {
             Ok(addr) => addr == stream.peer_addr().unwrap_or_else(|_| "0.0.0.0:0".parse().unwrap()), // Fallback to default address if error
             Err(_) => false, // Ignore if peer address retrieval fails
         }
@@ -107,7 +116,7 @@ fn start_server()
 {
     // Bind the server to a local address and port
     let listener = TcpListener::bind("127.0.0.1:1883").expect("Error starting the server"); 
-    println!("MQTT server started on 127.0.0.1:1883");
+    println!("\nMQTT server started on 127.0.0.1:1883\n");
 
     // Shared list of connected clients
     let clients: Arc<Mutex<Vec<TcpStream>>> = Arc::new(Mutex::new(Vec::new())); 
@@ -119,7 +128,7 @@ fn start_server()
         {
             Ok(stream) => 
             {
-                println!("Client connected: {:?}", stream.peer_addr());
+                println!("Client connected: {:?}\n", stream.peer_addr());
 
                 // Lock the client list for modification
                 let mut clients_guard = clients.lock().unwrap(); 
@@ -135,7 +144,7 @@ fn start_server()
             }
             Err(e) => 
             {
-                println!("Error accepting connection: {}", e); // Log errors during connection acceptance
+                println!("Error accepting connection: {}\n", e); // Log errors during connection acceptance
             }
         }
     }
