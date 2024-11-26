@@ -1,10 +1,12 @@
 use std::net::TcpStream;
 use std::io::{Read, Write};
+use std::io::{self};
 use mqtt_broker::packets::{
     connect::ConnectPacket,
     connack::ConnAckPacket,
     publish::PublishPacket,
     puback::PubAckPacket,
+    subscribe::SubscribePacket, 
 };
 
 /// Sends a CONNECT packet to the MQTT server.
@@ -87,8 +89,8 @@ fn send_publish_packet(mut stream: TcpStream, topic: &str, message: &str)
 
 /// Receives and decodes a PUBACK packet from the server.
 /// The PUBACK packet acknowledges the receipt of a message with QoS 1.
-fn receive_puback_packet(mut stream: TcpStream) 
-{
+fn receive_puback_packet(mut stream: TcpStream)
+ {
     let mut buffer = [0u8; 1024];
 
     // Read the server's response, expecting a PUBACK packet
@@ -111,12 +113,45 @@ fn receive_puback_packet(mut stream: TcpStream)
     }
 }
 
+/// Sends a SUBSCRIBE packet to the server.
+/// The SUBSCRIBE packet allows the client to subscribe to topics.
+fn send_subscribe_packet(mut stream: TcpStream, packet_id: u16, topic: &str) {
+    // Predefined QoS values (you can adjust this as needed)
+    let qos_values = vec![1];
+
+    // Create the SUBSCRIBE packet
+    let subscribe_packet = SubscribePacket::new(packet_id, vec![topic.to_string()], qos_values);
+
+    // Encode the SUBSCRIBE packet into bytes for transmission
+    let packet = subscribe_packet.encode();
+
+    // Send the SUBSCRIBE packet to the server
+    match stream.write(&packet) {
+        Ok(_) => println!("SUBSCRIBE packet sent: {:?}", subscribe_packet),
+        Err(e) => eprintln!("Failed to send SUBSCRIBE: {}", e),
+    }
+}
+
+/// Displays the menu options and handles user input for actions.
+fn display_menu() -> u8 {
+    println!("Please select an option:");
+    println!("1. Publish");
+    println!("2. Subscribe");
+    println!("3. Disconnect");
+
+    let mut choice = String::new();
+    io::stdin().read_line(&mut choice).expect("Failed to read line");
+
+    choice.trim().parse().unwrap_or(0) // Default to 0 if invalid input
+}
+
 /// Establishes a connection with the MQTT server and handles CONNECT, PUBLISH, and PUBACK packets.
 fn start_client() 
 {
     // Connect to the MQTT server at localhost on port 1883
     match TcpStream::connect("127.0.0.1:1883") {
-        Ok(stream) => {
+        Ok(mut stream) => 
+        {
             println!("Connected to MQTT server at 127.0.0.1:1883");
 
             // Send the connect package via the stream
@@ -125,11 +160,47 @@ fn start_client()
             // Receive the response (CONNACK)
             receive_connack_packet(stream.try_clone().expect("Error cloning the stream"));
 
-            // Send a PUBLISH packet
-            send_publish_packet(stream.try_clone().expect("Error cloning the stream"), "test/topic", "Hello MQTT!");
+            // Menu for user actions
+            loop {
+                let choice = display_menu();
 
-            // Receive the PUBACK packet in response
-            receive_puback_packet(stream);
+                match choice {
+                    1 => {
+                        // Option 1: Publish message
+                        let topic = "test/topic";
+                        let message = "Hello MQTT!";
+                        send_publish_packet(stream.try_clone().expect("Error cloning the stream"), topic, message);
+                        receive_puback_packet(stream.try_clone().expect("Error cloning the stream"));
+                    }
+                    2 => {
+                        // Option 2: Subscribe to a topic
+                        let topics = vec!["topic/1", "topic/2", "topic/3"]; // Predefined topics
+                        println!("Select a topic to subscribe to:");
+                        for (index, topic) in topics.iter().enumerate() {
+                            println!("{}: {}", index + 1, topic);
+                        }
+
+                        let mut topic_choice = String::new();
+                        io::stdin().read_line(&mut topic_choice).expect("Failed to read line");
+
+                        let topic_choice: usize = topic_choice.trim().parse().unwrap_or(0);
+                        if topic_choice > 0 && topic_choice <= topics.len() {
+                            let selected_topic = topics[topic_choice - 1];
+                            send_subscribe_packet(stream.try_clone().expect("Error cloning the stream"), 1, selected_topic); // Packet ID set to 1 for this example
+                        } else {
+                            println!("Invalid selection.");
+                        }
+                    }
+                    3 => {
+                        // Option 3: Disconnect (exit the loop)
+                        println!("Disconnecting...");
+                        break;
+                    }
+                    _ => {
+                        println!("Invalid selection. Please try again.");
+                    }
+                }
+            }
         }
         Err(e) => eprintln!("Failed to connect to server: {}", e),
     }
