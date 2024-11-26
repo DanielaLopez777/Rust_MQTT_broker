@@ -12,46 +12,66 @@ fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>) {
     let mut stream = stream;
     let mut buffer = [0u8; 1024];
 
-    loop {
-        match stream.read(&mut buffer) {
-            Ok(size) if size > 0 => {
-                if let Ok(packet) = PublishPacket::decode(&buffer[..size]) {
+    match stream.read(&mut buffer) 
+    {
+        Ok(size) if size > 0 => 
+        {
+            match ConnectPacket::decode(&buffer[0..size]) 
+            {
+                Ok(connect_packet) => 
+                {
+                    println!("Received CONNECT packet: {:?}\n\n", connect_packet);
+
+                    let connack_packet = ConnAckPacket::new(
+                        false,
+                        ConnAckReasonCode::Success,
+                        None,
+                    );
+
+                    let response = connack_packet.encode();
+
+                    match stream.write(&response) 
+                    {
+                        Ok(_) => println!("Sent CONNACK package: {:?}\n\n", connack_packet),
+                        Err(e) => eprintln!("Error sending the CONNACK package: {}\n\n", e),
+                    }
+                }
+                Err(e) => eprintln!("Error decoding CONNECT: {}\n\n", e),
+            }
+        }
+        Ok(_) => println!("Cliente desconectado: {:?}", stream.peer_addr()),
+
+        Err(e) => println!("Error al leer del stream: {}", e),
+    }
+
+    loop 
+    {
+        match stream.read(&mut buffer) 
+        {
+            Ok(size) if size > 0 => 
+            {
+                if let Ok(packet) = PublishPacket::decode(&buffer[..size]) 
+                {
                     println!("Recibido paquete PUBLISH: {:?}", packet);
 
                     let encoded_packet = packet.encode();
                     let clients_guard = clients.lock().unwrap();
-                    for mut client in clients_guard.iter() { // Cambiado a mut client
-                        if client.peer_addr().unwrap() != stream.peer_addr().unwrap() {
+                    for mut client in clients_guard.iter() 
+                    { 
+                        if client.peer_addr().unwrap() != stream.peer_addr().unwrap() 
+                        {
                             let _ = client.write(&encoded_packet);
                         }
                     }
-                } else {
-                    match ConnectPacket::decode(&buffer[0..size]) {
-                        Ok(connect_packet) => {
-                            println!("Received CONNECT packet: {:?}\n\n", connect_packet);
-
-                            let connack_packet = ConnAckPacket::new(
-                                false,
-                                ConnAckReasonCode::Success,
-                                None,
-                            );
-
-                            let response = connack_packet.encode();
-
-                            match stream.write(&response) {
-                                Ok(_) => println!("Sent CONNACK package: {:?}\n\n", connack_packet),
-                                Err(e) => eprintln!("Error sending the CONNACK package: {}\n\n", e),
-                            }
-                        }
-                        Err(e) => eprintln!("Error decoding CONNECT: {}\n\n", e),
-                    }
                 }
             }
-            Ok(_) => {
+            Ok(_) => 
+            {
                 println!("Cliente desconectado: {:?}", stream.peer_addr());
                 break;
             }
-            Err(e) => {
+            Err(e) => 
+            {
                 println!("Error al leer del stream: {}", e);
                 break;
             }
