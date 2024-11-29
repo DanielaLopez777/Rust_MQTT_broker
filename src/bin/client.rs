@@ -7,6 +7,7 @@ use mqtt_broker::packets::{
     publish::PublishPacket,
     puback::PubAckPacket,
     subscribe::SubscribePacket, 
+    suback::SubAckPacket, 
 };
 
 /// Sends a CONNECT packet to the MQTT server.
@@ -131,6 +132,27 @@ fn send_subscribe_packet(mut stream: TcpStream, packet_id: u16, topic: &str) {
         Err(e) => eprintln!("Failed to send SUBSCRIBE: {}", e),
     }
 }
+/// Receives and decodes a SUBACK packet from the server.
+/// The SUBACK packet acknowledges a subscription request.
+fn receive_suback_packet(mut stream: TcpStream) {
+    let mut buffer = [0u8; 1024];
+
+    // Read the server's response, expecting a SUBACK packet
+    match stream.read(&mut buffer) {
+        Ok(size) if size > 0 => {
+            // Decode the SUBACK packet
+            match SubAckPacket::decode(&buffer[0..size]) {
+                Ok(suback_packet) => {
+                    println!("Received SUBACK packet: {:?}", suback_packet);
+                }
+                Err(e) => eprintln!("Failed to decode SUBACK: {}", e),
+            }
+        }
+        Ok(_) => eprintln!("Empty package received"),
+        Err(e) => eprintln!("Error reading the stream: {}", e),
+    }
+    buffer.fill(0);
+}
 
 /// Displays the menu options and handles user input for actions.
 fn display_menu() -> u8 {
@@ -179,10 +201,10 @@ fn start_client()
                         for (index, topic) in topics.iter().enumerate() {
                             println!("{}: {}", index + 1, topic);
                         }
-
+                    
                         let mut topic_choice = String::new();
                         io::stdin().read_line(&mut topic_choice).expect("Failed to read line");
-
+                    
                         let topic_choice: usize = topic_choice.trim().parse().unwrap_or(0);
                         if topic_choice > 0 && topic_choice <= topics.len() {
                             let selected_topic = topics[topic_choice - 1];
@@ -190,6 +212,7 @@ fn start_client()
                         } else {
                             println!("Invalid selection.");
                         }
+                        receive_suback_packet(stream.try_clone().expect("Error cloning the stream"))
                     }
                     3 => {
                         // Option 3: Disconnect (exit the loop)

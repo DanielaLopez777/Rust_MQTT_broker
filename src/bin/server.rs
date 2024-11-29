@@ -7,6 +7,8 @@ use mqtt_broker::packets::{
     connack::{ConnAckPacket, ConnAckReasonCode}, // For creating CONNACK response packets
     publish::PublishPacket, // For handling MQTT PUBLISH packets
     puback::PubAckPacket,
+    subscribe::SubscribePacket,
+    suback::SubAckPacket,
 };
 
 // Function to handle each connected client
@@ -21,8 +23,8 @@ fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>)
         Ok(size) if size > 0 => 
         {
             // Decode the received data as a CONNECT packet
-            match ConnectPacket::decode(&buffer[0..size])
-             {
+            match ConnectPacket::decode(&buffer[0..size]) 
+            {
                 Ok(connect_packet) => 
                 {
                     println!("Received CONNECT packet: {:?}\n", connect_packet);
@@ -61,7 +63,7 @@ fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>)
                 if let Ok(packet) = PublishPacket::decode(&buffer[..size]) 
                 {
                     println!("Received PUBLISH packet: {:?}\n", packet);
-
+                    
                     // Send PUBACK packet
                     let puback_packet = PubAckPacket::new(packet.message_id);
                     let puback_response = puback_packet.encode();
@@ -80,6 +82,39 @@ fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>)
                         {
                             let _ = client.write(&encoded_packet);
                         }
+                    }
+                } 
+                if let Ok(packet) = SubscribePacket::decode(&buffer[..size]) 
+                {
+                    println!("Received SUBSCRIBE packet: {:?}\n", packet);
+                    
+                    // Prepare return codes for the subscription
+                    let return_codes: Vec<u8> = packet
+                        .qos_values
+                        .iter()
+                        .map(|&qos| {
+                            if qos <= 2 {
+                                qos // Grant requested QoS if valid (0, 1, 2)
+                            } else {
+                                0x80 // Return 0x80 for invalid QoS values
+                            }
+                        })
+                        .collect();
+
+                    // Create a SUBACK packet as a response
+                    let suback_packet = SubAckPacket {
+                        packet_id: packet.packet_id, // Echo the packet_id from the SUBSCRIBE packet
+                        return_codes,                // Use the computed return codes
+                    };
+
+                    // Encode the SUBACK packet (assume an `encode` method exists)
+                    let suback_response = suback_packet.encode(); 
+
+                    // Send the SUBACK packet back to the client
+                    match stream.write(&suback_response) 
+                    {
+                        Ok(_) => println!("Sent SUBACK : {:?}\n", suback_response),
+                        Err(e) => eprintln!("Error sending SUBACK packet: {}\n", e),
                     }
                 }
             }
