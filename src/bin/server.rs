@@ -59,64 +59,83 @@ fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>)
         {
             Ok(size) if size > 0 => 
             {
-                // Decode the data as a PUBLISH packet
-                if let Ok(packet) = PublishPacket::decode(&buffer[..size]) 
-                {
-                    println!("Received PUBLISH packet: {:?}\n", packet);
-                    
-                    // Send PUBACK packet
-                    let puback_packet = PubAckPacket::new(packet.message_id);
-                    let puback_response = puback_packet.encode();
-                    match stream.write(&puback_response) {
-                        Ok(_) => println!("Sent PUBACK packet for message ID: {}\n", packet.message_id),
-                        Err(e) => eprintln!("Error sending PUBACK packet: {}\n", e),
-                    }
-                    
-                    let encoded_packet = packet.encode(); // Encode the packet for broadcasting
-                    let clients_guard = clients.lock().unwrap(); // Lock the shared client list
+                // Determine packet type (for demonstration; replace with actual packet identification logic)
+                let packet_type = buffer[0] >> 4; // MQTT packet type is in the top 4 bits of the first byte.
 
-                    // Send the packet to all connected clients except the sender
-                    for mut client in clients_guard.iter() 
+                match packet_type 
+                {
+                    3 => 
                     {
-                        if client.peer_addr().unwrap() != stream.peer_addr().unwrap() 
+                        // PUBLISH packet
+                        if let Ok(packet) = PublishPacket::decode(&buffer[..size]) 
                         {
-                            let _ = client.write(&encoded_packet);
+                            println!("Received PUBLISH packet: {:?}\n", packet);
+                                                
+                            // Send PUBACK packet
+                            let puback_packet = PubAckPacket::new(packet.message_id);
+                            let puback_response = puback_packet.encode();
+                            match stream.write(&puback_response) 
+                            {
+                                Ok(_) => println!("Sent PUBACK packet for message ID: {}\n", packet.message_id),
+                                Err(e) => eprintln!("Error sending PUBACK packet: {}\n", e),
+                            }
+                                
+                            let encoded_packet = packet.encode(); // Encode the packet for broadcasting
+                            let clients_guard = clients.lock().unwrap(); // Lock the shared client list
+
+                            // Send the packet to all connected clients except the sender
+                            for mut client in clients_guard.iter() 
+                            {
+                                if client.peer_addr().unwrap() != stream.peer_addr().unwrap() 
+                                {
+                                    let _ = client.write(&encoded_packet);
+                                }
+                            }
+                        } 
+                    }
+                
+                    8 => 
+                    {
+                        // SUBSCRIBE packet
+                        if let Ok(packet) = SubscribePacket::decode(&buffer[..size]) 
+                        {
+                            println!("Received SUBSCRIBE packet: {:?}\n", packet);
+                            // Prepare return codes for the subscription
+                            let return_codes: Vec<u8> = packet
+                            .qos_values
+                            .iter()
+                            .map(|&qos| {
+                                if qos <= 2 {
+                                    qos // Grant requested QoS if valid (0, 1, 2)
+                                } else {
+                                    0x80 // Return 0x80 for invalid QoS values
+                                }
+                            })
+                            .collect();
+
+                            // Create a SUBACK packet as a response
+                            let suback_packet = SubAckPacket {
+                                packet_id: packet.packet_id, // Echo the packet_id from the SUBSCRIBE packet
+                                return_codes,                // Use the computed return codes
+                            };
+
+                            // Encode the SUBACK packet (assume an `encode` method exists)
+                            let suback_response = suback_packet.encode(); 
+
+                            // Send the SUBACK packet back to the client
+                            match stream.write(&suback_response) 
+                            {
+                                Ok(_) => println!("Sent SUBACK : {:?}\n", suback_response),
+                                Err(e) => eprintln!("Error sending SUBACK packet: {}\n", e),
+
+                            }
                         }
                     }
-                } 
-                if let Ok(packet) = SubscribePacket::decode(&buffer[..size]) 
-                {
-                    println!("Received SUBSCRIBE packet: {:?}\n", packet);
-                    
-                    // Prepare return codes for the subscription
-                    let return_codes: Vec<u8> = packet
-                        .qos_values
-                        .iter()
-                        .map(|&qos| {
-                            if qos <= 2 {
-                                qos // Grant requested QoS if valid (0, 1, 2)
-                            } else {
-                                0x80 // Return 0x80 for invalid QoS values
-                            }
-                        })
-                        .collect();
-
-                    // Create a SUBACK packet as a response
-                    let suback_packet = SubAckPacket {
-                        packet_id: packet.packet_id, // Echo the packet_id from the SUBSCRIBE packet
-                        return_codes,                // Use the computed return codes
-                    };
-
-                    // Encode the SUBACK packet (assume an `encode` method exists)
-                    let suback_response = suback_packet.encode(); 
-
-                    // Send the SUBACK packet back to the client
-                    match stream.write(&suback_response) 
-                    {
-                        Ok(_) => println!("Sent SUBACK : {:?}\n", suback_response),
-                        Err(e) => eprintln!("Error sending SUBACK packet: {}\n", e),
+                    _ => {
+                        println!("Unknown or unsupported packet type: {}\n", packet_type);
                     }
                 }
+
             }
             Ok(_) => 
             {
