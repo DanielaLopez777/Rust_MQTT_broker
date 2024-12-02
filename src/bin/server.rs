@@ -1,3 +1,4 @@
+use std::collections::HashMap; // For storing subscriptions per topic
 use std::sync::{Arc, Mutex}; // Provides thread-safe sharing of data between threads
 use std::net::{TcpListener, TcpStream}; // Provides TCP networking capabilities
 use std::thread; // Provides threading utilities for concurrent execution
@@ -11,8 +12,11 @@ use mqtt_broker::packets::{
     suback::SubAckPacket,
 };
 
-// Function to handle each connected client
-fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>) 
+fn handle_client(
+    stream: TcpStream,
+    clients: Arc<Mutex<Vec<TcpStream>>>,
+    topic_subscriptions: Arc<Mutex<HashMap<String, Vec<TcpStream>>>>, // Shared subscriptions
+) 
 {
     let mut stream = stream; // Make the TcpStream mutable to read/write data
     let mut buffer = [0u8; 1024]; // Buffer to store incoming data
@@ -127,7 +131,18 @@ fn handle_client(stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>)
                             {
                                 Ok(_) => println!("Sent SUBACK : {:?}\n", suback_response),
                                 Err(e) => eprintln!("Error sending SUBACK packet: {}\n", e),
+                            }
 
+                            // Add client to the topic subscriptions
+                            let mut subscriptions = topic_subscriptions.lock().unwrap();
+                            for topic in packet.topic_filters.iter() {
+                                if ["topic/1", "topic/2", "topic/3"].contains(&topic.as_str()) {
+                                    subscriptions
+                                        .entry(topic.clone())
+                                        .or_insert_with(Vec::new)
+                                        .push(stream.try_clone().unwrap());
+                                    println!("Client added to topic list: {}\n", topic);
+                                }
                             }
                         }
                     }
@@ -174,6 +189,8 @@ fn start_server()
 
     // Shared list of connected clients
     let clients: Arc<Mutex<Vec<TcpStream>>> = Arc::new(Mutex::new(Vec::new())); 
+    let topic_subscriptions: Arc<Mutex<HashMap<String, Vec<TcpStream>>>> =
+        Arc::new(Mutex::new(HashMap::new()));
 
     // Accept incoming connections in a loop
     for stream in listener.incoming() 
@@ -191,9 +208,10 @@ fn start_server()
 
                 // Create a clone of the client list for the new thread
                 let clients_clone = Arc::clone(&clients); 
+                let subscriptions_clone = Arc::clone(&topic_subscriptions);
                 thread::spawn(move || {
                     // Handle the client in a separate thread
-                    handle_client(stream, clients_clone); 
+                    handle_client(stream, clients_clone, subscriptions_clone);
                 });
             }
             Err(e) => 
