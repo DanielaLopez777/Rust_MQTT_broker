@@ -1,6 +1,7 @@
 use std::net::TcpStream;
 use std::io::{Read, Write};
 use std::io::{self};
+use std::thread;
 use mqtt_broker::packets::{
     connect::ConnectPacket,
     connack::ConnAckPacket,
@@ -168,6 +169,45 @@ fn display_menu() -> u8 {
 }
 
 /// Establishes a connection with the MQTT server and handles CONNECT, PUBLISH, and PUBACK packets.
+fn publications_listener(mut stream: TcpStream)
+{
+    let mut buffer = [0u8; 1024]; // Buffer to store incoming data
+
+    loop 
+    {
+        match stream.read(&mut buffer) 
+        {
+            Ok(size) if size > 0 => 
+            {
+                // Determine packet type (for demonstration; replace with actual packet identification logic)
+                let packet_type = buffer[0] >> 4; // MQTT packet type is in the top 4 bits of the first byte.
+
+                if packet_type == 3
+                {
+                    // PUBLISH packet
+                    if let Ok(packet) = PublishPacket::decode(&buffer[..size]) 
+                    {
+                        println!("Received PUBLISH packet: {:?}\n", packet);
+                    } 
+                    
+                }
+            }
+
+            Ok(_) => 
+            {
+                println!("Client disconnected: {:?}\n", stream.peer_addr()); // Handle client disconnection
+                break;
+            }
+            Err(e) => 
+            {
+                println!("Error reading from stream: {}\n", e); // Log reading errors
+                break;
+            }
+        }
+    }
+
+}
+
 fn start_client() 
 {
     // Connect to the MQTT server at localhost on port 1883
@@ -181,6 +221,12 @@ fn start_client()
 
             // Receive the response (CONNACK)
             receive_connack_packet(stream.try_clone().expect("Error cloning the stream"));
+
+            // Start a background thread for listening to publications
+            let listener_stream = stream.try_clone().expect("Error cloning the stream");
+            thread::spawn(move || {
+                publications_listener(listener_stream);
+            });
 
             // Menu for user actions
             loop {
