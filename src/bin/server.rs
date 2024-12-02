@@ -74,8 +74,8 @@ fn handle_client(
                         if let Ok(packet) = PublishPacket::decode(&buffer[..size]) 
                         {
                             println!("Received PUBLISH packet: {:?}\n", packet);
-                                                
-                            // Send PUBACK packet
+                        
+                            // Send PUBACK packet back to the sender
                             let puback_packet = PubAckPacket::new(packet.message_id);
                             let puback_response = puback_packet.encode();
                             match stream.write(&puback_response) 
@@ -83,17 +83,19 @@ fn handle_client(
                                 Ok(_) => println!("Sent PUBACK packet for message ID: {}\n", packet.message_id),
                                 Err(e) => eprintln!("Error sending PUBACK packet: {}\n", e),
                             }
-                                
-                            let encoded_packet = packet.encode(); // Encode the packet for broadcasting
-                            let clients_guard = clients.lock().unwrap(); // Lock the shared client list
-
-                            // Send the packet to all connected clients except the sender
-                            for mut client in clients_guard.iter() 
-                            {
-                                if client.peer_addr().unwrap() != stream.peer_addr().unwrap() 
-                                {
-                                    let _ = client.write(&encoded_packet);
+                        
+                            // Retrieve subscribers for the topic
+                            let topic_subscriptions_guard = topic_subscriptions.lock().unwrap(); // Lock the subscription list
+                            if let Some(subscribers) = topic_subscriptions_guard.get(&packet.topic_name) {
+                                for mut subscriber in subscribers.iter() {
+                                    if subscriber.peer_addr().unwrap() != stream.peer_addr().unwrap() {
+                                        // Send the payload to the subscriber
+                                        let _ = subscriber.write(&packet.payload);
+                                    }
                                 }
+                                println!("Message sent to topic: {}", packet.topic_name);
+                            } else {
+                                println!("No subscribers for topic: {}", packet.topic_name);
                             }
                         } 
                     }

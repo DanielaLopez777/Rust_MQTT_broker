@@ -189,7 +189,7 @@ fn start_client()
                 match choice {
                     1 => {
                         // Option 1: Publish message
-                        let topic = "test/topic";
+                        let topic = "topic/1";
                         let message = "Hello MQTT!";
                         send_publish_packet(stream.try_clone().expect("Error cloning the stream"), topic, message);
                         receive_puback_packet(stream.try_clone().expect("Error cloning the stream"));
