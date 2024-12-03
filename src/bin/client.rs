@@ -89,32 +89,6 @@ fn send_publish_packet(mut stream: TcpStream, topic: &str, message: &str)
     }
 }
 
-/// Receives and decodes a PUBACK packet from the server.
-/// The PUBACK packet acknowledges the receipt of a message with QoS 1.
-fn receive_puback_packet(mut stream: TcpStream)
- {
-    let mut buffer = [0u8; 1024];
-
-    // Read the server's response, expecting a PUBACK packet
-    match stream.read(&mut buffer) 
-    {
-        Ok(size) if size > 0 => 
-        {
-            // Decode the PUBACK packet
-            match PubAckPacket::decode(&buffer[0..size]) 
-            {
-                Ok(puback_packet) => 
-                {
-                    println!("Received PUBACK packet: {:?}", puback_packet);
-                }
-                Err(e) => eprintln!("Failed to decode PUBACK: {}", e),
-            }
-        }
-        Ok(_) => eprintln!("Empty package received"),
-        Err(e) => eprintln!("Error reading the stream: {}", e),
-    }
-}
-
 /// Sends a SUBSCRIBE packet to the server.
 /// The SUBSCRIBE packet allows the client to subscribe to topics.
 fn send_subscribe_packet(mut stream: TcpStream, packet_id: u16, topic: &str) {
@@ -133,27 +107,6 @@ fn send_subscribe_packet(mut stream: TcpStream, packet_id: u16, topic: &str) {
         Err(e) => eprintln!("Failed to send SUBSCRIBE: {}", e),
     }
 }
-/// Receives and decodes a SUBACK packet from the server.
-/// The SUBACK packet acknowledges a subscription request.
-fn receive_suback_packet(mut stream: TcpStream) {
-    let mut buffer = [0u8; 1024];
-
-    // Read the server's response, expecting a SUBACK packet
-    match stream.read(&mut buffer) {
-        Ok(size) if size > 0 => {
-            // Decode the SUBACK packet
-            match SubAckPacket::decode(&buffer[0..size]) {
-                Ok(suback_packet) => {
-                    println!("Received SUBACK packet: {:?}", suback_packet);
-                }
-                Err(e) => eprintln!("Failed to decode SUBACK: {}", e),
-            }
-        }
-        Ok(_) => eprintln!("Empty package received"),
-        Err(e) => eprintln!("Error reading the stream: {}", e),
-    }
-    buffer.fill(0);
-}
 
 /// Displays the menu options and handles user input for actions.
 fn display_menu() -> u8 {
@@ -169,43 +122,52 @@ fn display_menu() -> u8 {
 }
 
 /// Establishes a connection with the MQTT server and handles CONNECT, PUBLISH, and PUBACK packets.
-fn publications_listener(mut stream: TcpStream)
-{
+fn packets_listener(stream: TcpStream) {
+    let mut stream = stream; // Make the TcpStream mutable to read/write data
     let mut buffer = [0u8; 1024]; // Buffer to store incoming data
 
-    loop 
-    {
-        match stream.read(&mut buffer) 
-        {
-            Ok(size) if size > 0 => 
-            {
+    loop {
+        match stream.read(&mut buffer) {
+            Ok(size) if size > 0 => {
                 // Determine packet type (for demonstration; replace with actual packet identification logic)
                 let packet_type = buffer[0] >> 4; // MQTT packet type is in the top 4 bits of the first byte.
 
-                if packet_type == 3
-                {
-                    // PUBLISH packet
-                    if let Ok(packet) = PublishPacket::decode(&buffer[..size]) 
-                    {
-                        println!("Received PUBLISH packet: {:?}\n", packet);
-                    } 
-                    
+                match packet_type {
+                    3 => {
+                        // PUBLISH packet
+                        if let Ok(packet) = PublishPacket::decode(&buffer[..size]) {
+                            println!("Received PUBLISH packet: {:?}\n", packet);
+                        }
+                    }
+                    4 => {
+                        // PUBACK packet
+                        if let Ok(packet) = PubAckPacket::decode(&buffer[..size]) {
+                            println!("Received PUBACK packet: {:?}\n", packet);
+                        }
+                    }
+                    9 => {
+                        // SUBACK packet
+                        if let Ok(packet) = SubAckPacket::decode(&buffer[..size]) {
+                            println!("Received SUBACK packet: {:?}\n", packet);
+                        }
+                    }
+                    _ => {
+                        // Handle other packet types or log them
+                        println!("Unhandled packet type: {}\n", packet_type);
+                    }
                 }
             }
 
-            Ok(_) => 
-            {
+            Ok(_) => {
                 println!("Client disconnected: {:?}\n", stream.peer_addr()); // Handle client disconnection
                 break;
             }
-            Err(e) => 
-            {
+            Err(e) => {
                 println!("Error reading from stream: {}\n", e); // Log reading errors
                 break;
             }
         }
     }
-
 }
 
 fn start_client() 
@@ -224,8 +186,9 @@ fn start_client()
 
             // Start a background thread for listening to publications
             let listener_stream = stream.try_clone().expect("Error cloning the stream");
+            
             thread::spawn(move || {
-                publications_listener(listener_stream);
+                packets_listener(listener_stream);
             });
 
             // Menu for user actions
@@ -238,7 +201,6 @@ fn start_client()
                         let topic = "topic/1";
                         let message = "Hello MQTT!";
                         send_publish_packet(stream.try_clone().expect("Error cloning the stream"), topic, message);
-                        receive_puback_packet(stream.try_clone().expect("Error cloning the stream"));
                     }
                     2 => {
                         // Option 2: Subscribe to a topic
@@ -258,7 +220,6 @@ fn start_client()
                         } else {
                             println!("Invalid selection.");
                         }
-                        receive_suback_packet(stream.try_clone().expect("Error cloning the stream"))
                     }
                     3 => {
                         // Option 3: Disconnect (exit the loop)
