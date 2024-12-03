@@ -2,6 +2,7 @@ use std::net::TcpStream;
 use std::io::{Read, Write};
 use std::io::{self};
 use std::thread;
+use std::time::Duration;
 use mqtt_broker::packets::{
     connect::ConnectPacket,
     connack::ConnAckPacket,
@@ -201,6 +202,7 @@ fn start_client()
                         let topic = "topic/1";
                         let message = "Hello MQTT!";
                         send_publish_packet(stream.try_clone().expect("Error cloning the stream"), topic, message);
+                        thread::sleep(Duration::from_millis(500));
                     }
                     2 => {
                         // Option 2: Subscribe to a topic
@@ -217,6 +219,7 @@ fn start_client()
                         if topic_choice > 0 && topic_choice <= topics.len() {
                             let selected_topic = topics[topic_choice - 1];
                             send_subscribe_packet(stream.try_clone().expect("Error cloning the stream"), 1, selected_topic); // Packet ID set to 1 for this example
+                            thread::sleep(Duration::from_millis(500));
                         } else {
                             println!("Invalid selection.");
                         }
