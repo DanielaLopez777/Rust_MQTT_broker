@@ -2,7 +2,8 @@ use std::net::TcpStream;
 use std::io::{Read, Write};
 use std::io::{self};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use bytes::Bytes;
 use mqtt_broker::packets::{
     connect::ConnectPacket,
     connack::ConnAckPacket,
@@ -10,7 +11,7 @@ use mqtt_broker::packets::{
     puback::PubAckPacket,
     subscribe::SubscribePacket, 
     suback::SubAckPacket, 
-    ping::PingReqPacket
+    ping::{PingRespPacket, PingReqPacket}
 };
 
 /// Sends a CONNECT packet to the MQTT server.
@@ -127,14 +128,25 @@ fn display_menu() -> u8 {
 fn packets_listener(stream: TcpStream) {
     let mut stream = stream; // Make the TcpStream mutable to read/write data
     let mut buffer = [0u8; 1024]; // Buffer to store incoming data
-
+    //Starting ping time
+    let mut last_ping_time = Instant::now();
     loop {
+        // Send the pingreq
+        let pingreq_packet = PingReqPacket; // Create an instance of PingReqPacket
+        let pingreq_response = pingreq_packet.encode(); // Encode the PINGREQ packet
+        match stream.write(&pingreq_response) 
+        {
+            Ok(_) => println!("Sent PINGREQ packet."),
+            Err(e) => eprintln!("Error sending PINGREQ packet: {}\n", e),
+        }
+        
         match stream.read(&mut buffer) {
             Ok(size) if size > 0 => {
                 // Determine packet type (for demonstration; replace with actual packet identification logic)
                 let packet_type = buffer[0] >> 4; // MQTT packet type is in the top 4 bits of the first byte.
 
-                match packet_type {
+                match packet_type 
+                {
                     3 => {
                         // PUBLISH packet
                         if let Ok(packet) = PublishPacket::decode(&buffer[..size]) {
@@ -155,10 +167,31 @@ fn packets_listener(stream: TcpStream) {
                             println!("Received SUBACK packet: {:?}\n", packet);
                         }
                     }
+                    13 => 
+                    {
+                        // PINGRESP packet
+                        match PingRespPacket::decode(&Bytes::copy_from_slice(&buffer[..size])) {
+                            Ok(_) => {
+                                // Valid PINGRESP packet received
+                                last_ping_time = Instant::now(); // Update the timestamp when PINGRESP is received
+                                println!("Received PINGRESP packet. Sending PINGRESP...");
+
+                            }
+                            Err(err) => {
+                                // Invalid PINGRESP packet received
+                                eprintln!("Invalid PINGRESP packet: {}\n", err);
+                            }
+                        }
+                    }
                     _ => {
                         // Handle other packet types or log them
                         println!("Unhandled packet type: {}\n", packet_type);
                     }
+                }
+                if last_ping_time.elapsed() > Duration::from_secs(60) 
+                {
+                    println!("No PINGREQ received for over 60 seconds. Closing connection.");
+                    break;
                 }
             }
 

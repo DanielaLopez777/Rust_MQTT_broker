@@ -3,6 +3,8 @@ use std::sync::{Arc, Mutex}; // Provides thread-safe sharing of data between thr
 use std::net::{TcpListener, TcpStream}; // Provides TCP networking capabilities
 use std::thread; // Provides threading utilities for concurrent execution
 use std::io::{Read, Write}; // Provides I/O traits for reading and writing
+use std::time::{Duration, Instant};
+use bytes::Bytes;
 use mqtt_broker::packets::{
     connect::ConnectPacket, // For handling MQTT CONNECT packets
     connack::{ConnAckPacket, ConnAckReasonCode}, // For creating CONNACK response packets
@@ -10,7 +12,7 @@ use mqtt_broker::packets::{
     puback::PubAckPacket,
     subscribe::SubscribePacket,
     suback::SubAckPacket,
-    ping::PingRespPacket
+    ping::{PingRespPacket, PingReqPacket}
 };
 
 fn handle_client(
@@ -56,6 +58,9 @@ fn handle_client(
         Ok(_) => println!("Client disconnected: {:?}\n", stream.peer_addr()), // Handle empty read (disconnection)
         Err(e) => println!("Error reading from stream: {}\n", e), // Log reading errors
     }
+
+    //Starting ping time
+    let mut last_ping_time = Instant::now();
 
     // Enter a loop to continuously read packets from the client
     loop 
@@ -153,9 +158,39 @@ fn handle_client(
                             }
                         }
                     }
+                    12 => 
+                    {
+                        // PINGREQ packet
+                        match PingReqPacket::decode(&Bytes::copy_from_slice(&buffer[..size])) {
+                            Ok(_) => {
+                                // Valid PINGREQ packet received
+                                last_ping_time = Instant::now(); // Update the timestamp when PINGREQ is received
+                                println!("Received PINGREQ packet. Sending PINGRESP...");
+
+                                // Respond with PINGRESP packet
+                                let pingresp_packet = PingRespPacket; // Create an instance of PingRespPacket
+                                let pingresp_response = pingresp_packet.encode(); // Encode the PINGRESP packet
+                                match stream.write(&pingresp_response) {
+                                    Ok(_) => println!("Sent PINGRESP packet."),
+                                    Err(e) => eprintln!("Error sending PINGRESP packet: {}\n", e),
+                                }
+                            }
+                            Err(err) => {
+                                // Invalid PINGREQ packet received
+                                eprintln!("Invalid PINGREQ packet: {}\n", err);
+                            }
+                        }
+                    }
+
                     _ => {
                         println!("Unknown or unsupported packet type: {}\n", packet_type);
                     }
+                }
+
+                if last_ping_time.elapsed() > Duration::from_secs(60) 
+                {
+                    println!("No PINGREQ received for over 60 seconds. Closing connection.");
+                    break;
                 }
 
             }
