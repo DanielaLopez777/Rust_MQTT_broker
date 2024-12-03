@@ -114,33 +114,46 @@ impl PublishPacket {
     /// This function returns a result containing either a decoded `PublishPacket` or an error if decoding fails.
     pub fn decode(data: &[u8]) -> Result<Self, String> {
         let mut cursor = std::io::Cursor::new(data);
-        cursor.set_position(2); // Skip the first byte (packet type + flags)
-
-        // Read topic name length and topic name
+    
+        //Read the first byte (packet type and flags)
+        let first_byte = cursor.read_u8().map_err(|e| e.to_string())?;
+    
+        //Decode the rest of the package in VLQ
+        let mut remaining_length = 0u16;
+        let mut multiplier = 1u16;
+        loop {
+            let byte = cursor.read_u8().map_err(|e| e.to_string())?;
+            remaining_length += (byte & 127) as u16 * multiplier;
+            multiplier *= 128;
+            if (byte & 128) == 0 {
+                break;
+            }
+        }
+    
+        //Read the topic lenght (2 bytes) and the topic name
         let topic_name_len = cursor.read_u16::<BigEndian>().map_err(|e| e.to_string())? as usize;
         let mut topic_name = vec![0; topic_name_len];
         cursor.read_exact(&mut topic_name).map_err(|e| e.to_string())?;
         let topic_name = String::from_utf8(topic_name).map_err(|e| e.to_string())?;
-
-        // Read QoS, retain, and dup flags
-        let first_byte = cursor.read_u8().map_err(|e| e.to_string())?;
+    
+        //Read the message ID if qos is > 0)
         let qos = (first_byte >> 1) & 0x03;
-        let retain = first_byte & 0x01 != 0;
-        let dup = first_byte & 0x08 != 0;
-
-        // Read message ID 
-        let message_id = cursor.read_u16::<BigEndian>().map_err(|e| e.to_string())?;
+        let message_id = if qos > 0 {
+            cursor.read_u16::<BigEndian>().map_err(|e| e.to_string())?
+        } else {
+            0
+        };
     
         // Read the payload (remaining data)
         let mut payload = Vec::new();
         cursor.read_to_end(&mut payload).map_err(|e| e.to_string())?;
-
+    
         Ok(PublishPacket {
             topic_name,
             message_id,
             qos,
-            retain,
-            dup,
+            retain: first_byte & 0x01 != 0,
+            dup: first_byte & 0x08 != 0,
             payload,
         })
     }

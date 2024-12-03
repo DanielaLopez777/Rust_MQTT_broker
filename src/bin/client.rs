@@ -137,7 +137,9 @@ fn packets_listener(stream: TcpStream) {
                     3 => {
                         // PUBLISH packet
                         if let Ok(packet) = PublishPacket::decode(&buffer[..size]) {
-                            println!("Received PUBLISH packet: {:?}\n", packet);
+                            let bytes = packet.payload;
+                            let reconstructed_message = String::from_utf8(bytes).expect("Error al convertir bytes a string");
+                            println!("Received PUBLISH packet from {:?} topic: {:?}\n", packet.topic_name, reconstructed_message);
                         }
                     }
                     4 => {
