@@ -124,22 +124,27 @@ fn display_menu() -> u8 {
     choice.trim().parse().unwrap_or(0) // Default to 0 if invalid input
 }
 
-/// Establishes a connection with the MQTT server and handles CONNECT, PUBLISH, and PUBACK packets.
-fn packets_listener(stream: TcpStream) {
-    let mut stream = stream; // Make the TcpStream mutable to read/write data
+fn packets_listener(mut stream: TcpStream) {
     let mut buffer = [0u8; 1024]; // Buffer to store incoming data
     //Starting ping time
     let mut last_ping_time = Instant::now();
+    let mut pending_ping = false; // Flag to track if we are waiting for PINGRESP
+    
     loop {
-        // Send the pingreq
-        let pingreq_packet = PingReqPacket; // Create an instance of PingReqPacket
-        let pingreq_response = pingreq_packet.encode(); // Encode the PINGREQ packet
-        match stream.write(&pingreq_response) 
-        {
-            Ok(_) => {},
-            Err(e) => eprintln!("Error sending PINGREQ packet: {}\n", e),
+        // Send PINGREQ every 60 seconds if no other packets are being processed
+        if last_ping_time.elapsed() > Duration::from_secs(60) && !pending_ping {
+            let pingreq_packet = PingReqPacket;
+            let pingreq_response = pingreq_packet.encode();
+            match stream.write(&pingreq_response) {
+                Ok(_) => {
+                    println!("Sent PINGREQ");
+                    pending_ping = true; // Mark that we're waiting for a PINGRESP
+                },
+                Err(e) => eprintln!("Error sending PINGREQ packet: {}\n", e),
+            }
+            last_ping_time = Instant::now();
         }
-        
+
         match stream.read(&mut buffer) {
             Ok(size) if size > 0 => {
                 // Determine packet type (for demonstration; replace with actual packet identification logic)
@@ -167,18 +172,14 @@ fn packets_listener(stream: TcpStream) {
                             println!("Received SUBACK packet: {:?}\n", packet);
                         }
                     }
-                    13 => 
+                    13 =>
                     {
-                        // PINGRESP packet
-                        match PingRespPacket::decode(&Bytes::copy_from_slice(&buffer[..size])) {
-                            Ok(_) => {
-                                // Valid PINGRESP packet received
-                                last_ping_time = Instant::now(); // Update the timestamp when PINGRESP is received
-                            }
-                            Err(err) => {
-                                // Invalid PINGRESP packet received
-                                eprintln!("Invalid PINGRESP packet: {}\n", err);
-                            }
+                        // Handle PINGRESP packet
+                        if let Ok(_) = PingRespPacket::decode(&Bytes::copy_from_slice(&buffer[..size])) {
+                            println!("Received valid PINGRESP packet.");
+                            pending_ping = false; // Reset pending_ping flag after receiving PINGRESP
+                        } else {
+                            eprintln!("Invalid PINGRESP packet.\n");
                         }
                     }
                     _ => {
