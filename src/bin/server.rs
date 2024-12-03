@@ -89,8 +89,12 @@ fn handle_client(
                             if let Some(subscribers) = topic_subscriptions_guard.get(&packet.topic_name) {
                                 for mut subscriber in subscribers.iter() {
                                     if subscriber.peer_addr().unwrap() != stream.peer_addr().unwrap() {
-                                        // Send the payload to the subscriber
-                                        let _ = subscriber.write(&packet.payload);
+                                        // Encode the entire PUBLISH packet
+                                        let publish_response = packet.encode(); 
+                                        match subscriber.write(&publish_response) {
+                                            Ok(_) => println!("Sent PUBLISH packet to subscriber: {:?}", subscriber.peer_addr()),
+                                            Err(e) => eprintln!("Error sending PUBLISH packet: {}", e),
+                                        }
                                     }
                                 }
                                 println!("Message sent to topic: {}", packet.topic_name);
