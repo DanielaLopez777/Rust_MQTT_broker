@@ -136,7 +136,7 @@ fn packets_listener(stream: TcpStream) {
         let pingreq_response = pingreq_packet.encode(); // Encode the PINGREQ packet
         match stream.write(&pingreq_response) 
         {
-            Ok(_) => println!("Sent PINGREQ packet."),
+            Ok(_) => {},
             Err(e) => eprintln!("Error sending PINGREQ packet: {}\n", e),
         }
         
@@ -174,8 +174,6 @@ fn packets_listener(stream: TcpStream) {
                             Ok(_) => {
                                 // Valid PINGRESP packet received
                                 last_ping_time = Instant::now(); // Update the timestamp when PINGRESP is received
-                                println!("Received PINGRESP packet. Sending PINGRESP...");
-
                             }
                             Err(err) => {
                                 // Invalid PINGRESP packet received

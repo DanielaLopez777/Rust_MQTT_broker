@@ -165,13 +165,12 @@ fn handle_client(
                             Ok(_) => {
                                 // Valid PINGREQ packet received
                                 last_ping_time = Instant::now(); // Update the timestamp when PINGREQ is received
-                                println!("Received PINGREQ packet. Sending PINGRESP...");
 
                                 // Respond with PINGRESP packet
                                 let pingresp_packet = PingRespPacket; // Create an instance of PingRespPacket
                                 let pingresp_response = pingresp_packet.encode(); // Encode the PINGRESP packet
                                 match stream.write(&pingresp_response) {
-                                    Ok(_) => println!("Sent PINGRESP packet."),
+                                    Ok(_) => {},
                                     Err(e) => eprintln!("Error sending PINGRESP packet: {}\n", e),
                                 }
                             }
