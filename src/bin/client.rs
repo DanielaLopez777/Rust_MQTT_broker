@@ -10,6 +10,7 @@ use mqtt_broker::packets::{
     puback::PubAckPacket,
     subscribe::SubscribePacket, 
     suback::SubAckPacket, 
+    ping::PingReqPacket
 };
 
 /// Sends a CONNECT packet to the MQTT server.

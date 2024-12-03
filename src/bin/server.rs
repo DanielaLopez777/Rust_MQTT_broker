@@ -10,6 +10,7 @@ use mqtt_broker::packets::{
     puback::PubAckPacket,
     subscribe::SubscribePacket,
     suback::SubAckPacket,
+    ping::PingRespPacket
 };
 
 fn handle_client(

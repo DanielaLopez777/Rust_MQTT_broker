@@ -6,11 +6,11 @@ pub use packets::{
     connack::ConnAckPacket,
     
     publish::PublishPacket,
-    puback:: PubAckPacket, //PubRecPacket, PubRelPacket, PubCompPacket},
-    subscribe::SubscribePacket, // UnsubscribePacket},
-    suback::SubAckPacket, /*UnsubAckPacket},
+    puback:: PubAckPacket, //PubRecPacket, PubRelPacket, PubCompPacket
+    subscribe::SubscribePacket, // UnsubscribePacket
+    suback::SubAckPacket, //UnsubAckPacket
     ping::{PingReqPacket, PingRespPacket},
-    disconnect::DisconnectPacket,
+    /*disconnect::DisconnectPacket,
     auth::AuthPacket, */
 };
 
