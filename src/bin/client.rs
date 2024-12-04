@@ -263,10 +263,38 @@ fn start_client()
                 match choice {
                     1 => {
                         // Option 1: Publish message
-                        let topic = "General";
-                        let message = "Hello MQTT!";
-                        send_publish_packet(stream.try_clone().expect("[-]Error cloning the stream\n"), topic, message);
-                        thread::sleep(Duration::from_millis(100));
+                        let topics = vec!["General", "Status", "Random"]; // Predefined topics
+                        println!("Select a topic to publish to:");
+                        for (index, topic) in topics.iter().enumerate() {
+                            println!("{}: {}", index + 1, topic);
+                        }
+
+                        let mut topic_choice = String::new();
+                        io::stdin()
+                            .read_line(&mut topic_choice)
+                            .expect("Failed to read line");
+
+                        let topic_choice: usize = topic_choice.trim().parse().unwrap_or(0);
+                        if topic_choice > 0 && topic_choice <= topics.len() {
+                            let selected_topic = topics[topic_choice - 1];
+
+                            println!("Enter the message to send:");
+                            let mut message = String::new();
+                            io::stdin()
+                                .read_line(&mut message)
+                                .expect("Failed to read line");
+                            let message = message.trim(); // Remove trailing newline characters
+
+                            send_publish_packet(
+                                stream.try_clone().expect("Error cloning the stream"),
+                                selected_topic,
+                                message,
+                            );
+                            thread::sleep(Duration::from_millis(100));
+                        } 
+                        else {
+                            println!("[-]Invalid topic selection.\n");
+                        }
                     }
                     2 => {
                         // Option 2: Subscribe to a topic
