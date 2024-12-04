@@ -249,14 +249,14 @@ fn start_client()
                 match choice {
                     1 => {
                         // Option 1: Publish message
-                        let topic = "topic/1";
+                        let topic = "General";
                         let message = "Hello MQTT!";
                         send_publish_packet(stream.try_clone().expect("Error cloning the stream"), topic, message);
                         thread::sleep(Duration::from_millis(100));
                     }
                     2 => {
                         // Option 2: Subscribe to a topic
-                        let topics = vec!["topic/1", "topic/2", "topic/3"]; // Predefined topics
+                        let topics = vec!["General", "Status", "Random"]; // Predefined topics
                         println!("Select a topic to subscribe to:");
                         for (index, topic) in topics.iter().enumerate() {
                             println!("{}: {}", index + 1, topic);

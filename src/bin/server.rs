@@ -162,7 +162,7 @@ fn handle_client(
                             // Add client to the topic subscriptions
                             let mut subscriptions = topic_subscriptions.lock().unwrap();
                             for topic in packet.topic_filters.iter() {
-                                if ["topic/1", "topic/2", "topic/3"].contains(&topic.as_str()) {
+                                if ["General", "Status", "Random"].contains(&topic.as_str()) {
                                     subscriptions
                                         .entry(topic.clone())
                                         .or_insert_with(Vec::new)
