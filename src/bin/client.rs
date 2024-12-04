@@ -4,6 +4,7 @@ use std::io::{self};
 use std::thread;
 use std::time::{Duration, Instant};
 use bytes::Bytes;
+use std::sync::{Arc, Mutex};
 use mqtt_broker::packets::{
     connect::ConnectPacket,
     connack::ConnAckPacket,
@@ -138,7 +139,7 @@ fn display_menu() -> u8 {
     choice.trim().parse().unwrap_or(0) // Default to 0 if invalid input
 }
 
-fn packets_listener(mut stream: TcpStream) {
+fn packets_listener(mut stream: TcpStream, shutdown_flag: Arc<Mutex<bool>>) {
     let mut buffer = [0u8; 1024]; // Buffer to store incoming data
     //Starting ping time
     let mut last_ping_time = Instant::now();
@@ -219,10 +220,17 @@ fn packets_listener(mut stream: TcpStream) {
             }
         }
     }
+
+    // Signal the main thread that the listener has finished
+    let mut shutdown = shutdown_flag.lock().unwrap();
+    *shutdown = true;
+    println!("Packets listener thread finished. Please type any number to end\n");
 }
 
 fn start_client() 
 {
+    let shutdown_flag = Arc::new(Mutex::new(false)); // Flag to track if the listener thread has finished
+
     // Connect to the MQTT server at localhost on port 1883
     match TcpStream::connect("127.0.0.1:1883") {
         Ok(mut stream) => 
@@ -235,17 +243,23 @@ fn start_client()
             // Receive the response (CONNACK)
             receive_connack_packet(stream.try_clone().expect("Error cloning the stream"));
 
-            // Start a background thread for listening to publications
+            let listener_flag = Arc::clone(&shutdown_flag);
+
+            // Start the background thread for listening to publications
             let listener_stream = stream.try_clone().expect("Error cloning the stream");
             
             thread::spawn(move || {
-                packets_listener(listener_stream);
+                packets_listener(listener_stream, listener_flag);
             });
 
             // Menu for user actions
             loop {
                 let choice = display_menu();
-
+                // Check if the listener thread has finished
+                if *shutdown_flag.lock().unwrap() {
+                    println!("Listener thread finished, exiting.");
+                    break;
+                }
                 match choice {
                     1 => {
                         // Option 1: Publish message
@@ -261,10 +275,10 @@ fn start_client()
                         for (index, topic) in topics.iter().enumerate() {
                             println!("{}: {}", index + 1, topic);
                         }
-                    
+
                         let mut topic_choice = String::new();
                         io::stdin().read_line(&mut topic_choice).expect("Failed to read line");
-                    
+
                         let topic_choice: usize = topic_choice.trim().parse().unwrap_or(0);
                         if topic_choice > 0 && topic_choice <= topics.len() {
                             let selected_topic = topics[topic_choice - 1];
