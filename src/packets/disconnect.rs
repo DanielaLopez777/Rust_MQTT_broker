@@ -87,25 +87,4 @@ impl DisconnectPacket {
 
         buffer
     }
-
-    /// Decode a disconnect packet from bytes
-    pub fn decode(packet: &[u8]) -> Result<Self, &'static str> {
-        let reason_code = DisconnectReasonCode::from_u8(packet[2])
-            .ok_or("Invalid reason code in Disconnect packet")?;
-
-        let mut properties = HashMap::new();
-        let mut index = 3; // Start after reason code
-        while index < packet.len() {
-            let property_id = packet[index];
-            index += 1;
-            let value = vec![packet[index]];
-            index += 1;
-            properties.insert(property_id, value);
-        }
-
-        Ok(Self {
-            reason_code,
-            properties,
-        })
-    }
 }
