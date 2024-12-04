@@ -11,7 +11,8 @@ use mqtt_broker::packets::{
     puback::PubAckPacket,
     subscribe::SubscribePacket, 
     suback::SubAckPacket, 
-    ping::{PingRespPacket, PingReqPacket}
+    ping::{PingRespPacket, PingReqPacket},
+    disconnect::{DisconnectPacket, DisconnectReasonCode}
 };
 
 /// Sends a CONNECT packet to the MQTT server.
@@ -111,6 +112,19 @@ fn send_subscribe_packet(mut stream: TcpStream, packet_id: u16, topic: &str) {
     }
 }
 
+fn send_disconnect_packet(stream: &mut TcpStream, reason_code: DisconnectReasonCode) {
+    let mut disconnect_packet = DisconnectPacket::new(reason_code);
+    disconnect_packet.add_property(0x11, vec![0x01, 0x02]);
+
+    let packet = disconnect_packet.encode();
+
+    // Send the Disconnect packet to the server
+    match stream.write(&packet) {
+        Ok(_) => println!("DISCONNECT packet sent: {:?}", disconnect_packet),
+        Err(e) => eprintln!("Failed to send DISCONNECT: {}", e),
+    }
+}
+
 /// Displays the menu options and handles user input for actions.
 fn display_menu() -> u8 {
     println!("Please select an option:");
@@ -129,19 +143,17 @@ fn packets_listener(mut stream: TcpStream) {
     //Starting ping time
     let mut last_ping_time = Instant::now();
     let mut pending_ping = false; // Flag to track if we are waiting for PINGRESP
-    
+
     loop {
         // Send PINGREQ every 60 seconds if no other packets are being processed
         if last_ping_time.elapsed() > Duration::from_secs(60) && !pending_ping {
             let pingreq_packet = PingReqPacket;
             let pingreq_response = pingreq_packet.encode();
-            match stream.write(&pingreq_response) {
-                Ok(_) => {
-                    println!("Sent PINGREQ");
-                    pending_ping = true; // Mark that we're waiting for a PINGRESP
-                },
-                Err(e) => eprintln!("Error sending PINGREQ packet: {}\n", e),
+            if let Err(e) = stream.write(&pingreq_response) {
+                eprintln!("Error sending PINGREQ packet: {}", e);
+                break;
             }
+            pending_ping = true;
             last_ping_time = Instant::now();
         }
 
@@ -182,6 +194,15 @@ fn packets_listener(mut stream: TcpStream) {
                             eprintln!("Invalid PINGRESP packet.\n");
                         }
                     }
+
+                    14 => 
+                    {
+                        if let Ok(packet) = DisconnectPacket::decode(&buffer[..size]) 
+                        {
+                            println!("Received DISCONNECT packet: {:?}\n", packet);
+                            break; // Close the connection loop
+                        }
+                    }
                     _ => {
                         // Handle other packet types or log them
                         println!("Unhandled packet type: {}\n", packet_type);
@@ -195,10 +216,12 @@ fn packets_listener(mut stream: TcpStream) {
             }
 
             Ok(_) => {
-                println!("Client disconnected: {:?}\n", stream.peer_addr()); // Handle client disconnection
+                send_disconnect_packet(&mut stream, DisconnectReasonCode::ServerShuttingDown);
+                println!("Server disconnected: {:?}\n", stream.peer_addr());
                 break;
             }
             Err(e) => {
+                send_disconnect_packet(&mut stream, DisconnectReasonCode::DisconnectWithWillMessage);
                 println!("Error reading from stream: {}\n", e); // Log reading errors
                 break;
             }
@@ -259,8 +282,9 @@ fn start_client()
                             println!("Invalid selection.");
                         }
                     }
-                    3 => {
-                        // Option 3: Disconnect (exit the loop)
+                    3 => 
+                    {
+                        send_disconnect_packet(&mut stream, DisconnectReasonCode::NormalDisconnection);
                         println!("Disconnecting...");
                         break;
                     }

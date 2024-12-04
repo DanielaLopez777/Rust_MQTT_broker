@@ -12,8 +12,22 @@ use mqtt_broker::packets::{
     puback::PubAckPacket,
     subscribe::SubscribePacket,
     suback::SubAckPacket,
-    ping::{PingRespPacket, PingReqPacket}
+    ping::{PingRespPacket, PingReqPacket},
+    disconnect::{DisconnectPacket, DisconnectReasonCode}
 };
+
+fn send_disconnect_packet(stream: &mut TcpStream, reason_code: DisconnectReasonCode) {
+    let mut disconnect_packet = DisconnectPacket::new(reason_code);
+    disconnect_packet.add_property(0x11, vec![0x01, 0x02]);
+
+    let packet = disconnect_packet.encode();
+
+    // Send the Disconnect packet to the server
+    match stream.write(&packet) {
+        Ok(_) => println!("DISCONNECT packet sent: {:?}", disconnect_packet),
+        Err(e) => eprintln!("Failed to send DISCONNECT: {}", e),
+    }
+}
 
 fn handle_client(
     stream: TcpStream,
@@ -25,15 +39,15 @@ fn handle_client(
     let mut buffer = [0u8; 1024]; // Buffer to store incoming data
 
     // Initial read to check for a CONNECT packet from the client
-    match stream.read(&mut buffer) 
-    {
+    match stream.read(&mut buffer)
+     {
         Ok(size) if size > 0 => 
         {
             // Decode the received data as a CONNECT packet
             match ConnectPacket::decode(&buffer[0..size]) 
             {
-                Ok(connect_packet) => 
-                {
+                Ok(connect_packet) =>
+                 {
                     println!("Received CONNECT packet: {:?}\n", connect_packet);
 
                     // Create a CONNACK packet as a response
@@ -181,6 +195,14 @@ fn handle_client(
                         }
                     }
 
+                    14 => 
+                    {
+                        if let Ok(packet) = DisconnectPacket::decode(&buffer[..size]) {
+                            println!("Received DISCONNECT packet: {:?}\n", packet);
+                            break;
+                        }
+                    }
+
                     _ => {
                         println!("Unknown or unsupported packet type: {}\n", packet_type);
                     }
@@ -188,6 +210,7 @@ fn handle_client(
 
                 if last_ping_time.elapsed() > Duration::from_secs(60) 
                 {
+                    send_disconnect_packet(&mut stream, DisconnectReasonCode::KeepAliveTimeout);
                     println!("No PINGREQ received for over 60 seconds. Closing connection.");
                     break;
                 }
@@ -195,12 +218,13 @@ fn handle_client(
             }
             Ok(_) => 
             {
+                send_disconnect_packet(&mut stream, DisconnectReasonCode::NormalDisconnection);
                 println!("Client disconnected: {:?}\n", stream.peer_addr()); // Handle client disconnection
                 break;
             }
             Err(e) => 
             {
-                println!("Error reading from stream: {}\n", e); // Log reading errors
+                eprintln!("Error reading from stream: {}\n", e); // Log reading errors
                 break;
             }
         }

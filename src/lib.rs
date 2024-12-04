@@ -10,8 +10,8 @@ pub use packets::{
     subscribe::SubscribePacket, // UnsubscribePacket
     suback::SubAckPacket, //UnsubAckPacket
     ping::{PingReqPacket, PingRespPacket},
-    /*disconnect::DisconnectPacket,
-    auth::AuthPacket, */
+    disconnect::DisconnectPacket,
+    //auth::AuthPacket,
 };
 
 // Represent all MQTT packet types
