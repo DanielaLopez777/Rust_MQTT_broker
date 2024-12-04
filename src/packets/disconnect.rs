@@ -87,4 +87,53 @@ impl DisconnectPacket {
 
         buffer
     }
+
+    /// Decode a disconnect packet from a byte slice
+    pub fn decode(packet: &[u8]) -> Result<Self, &'static str> {
+        if packet.len() < 3 {
+            return Err("Packet too short to decode");
+        }
+
+        let mut index = 1; // Skip the fixed header byte
+
+        // Get the length of the variable header
+        let variable_header_len = packet[index] as usize;
+        if packet.len() < variable_header_len + 2 {
+            return Err("Packet length mismatch");
+        }
+        index += 1; // Move to the reason code
+
+        // Extract the reason code (1 byte)
+        let reason_code_value = packet[index];
+        let reason_code = DisconnectReasonCode::from_u8(reason_code_value)
+            .ok_or("Invalid reason code")?;
+        index += 1; // Move to properties
+
+        // Extract properties
+        let mut properties = HashMap::new();
+        while index < packet.len() {
+            if index + 1 >= packet.len() {
+                return Err("Property length missing");
+            }
+
+            let property_identifier = packet[index];
+            index += 1;
+
+            let property_length = packet[index] as usize;
+            index += 1;
+
+            if index + property_length > packet.len() {
+                return Err("Property data out of bounds");
+            }
+
+            let property_value = packet[index..index + property_length].to_vec();
+            properties.insert(property_identifier, property_value);
+            index += property_length;
+        }
+
+        Ok(DisconnectPacket {
+            reason_code,
+            properties,
+        })
+    }
 }
