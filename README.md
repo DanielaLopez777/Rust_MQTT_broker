@@ -1,4 +1,4 @@
-# MQTT broker and client
+# MQTT Rust broker and client
 
 An MQTT broker that handles simultaneous connections through the use of threads, enabling efficient concurrent processing. The client component is designed with concurrency capabilities, allowing it to listen for incoming packets, send pings, and process user-initiated actions. The implementation adheres to MQTT version 5.0, supporting the CONNECT, CONNACK, SUBSCRIBE, SUBACK, PINGREQ, PINGRESP, and DISCONNECT packets. Due to the steep learning curve of Rust and project time constraints, the remaining packet types were not implemented.
 
