@@ -24,8 +24,8 @@ fn send_disconnect_packet(stream: &mut TcpStream, reason_code: DisconnectReasonC
 
     // Send the Disconnect packet to the server
     match stream.write(&packet) {
-        Ok(_) => println!("DISCONNECT packet sent: {:?}", disconnect_packet),
-        Err(e) => eprintln!("Failed to send DISCONNECT: {}", e),
+        Ok(_) => println!("[+]DISCONNECT packet sent: {:?}\n", disconnect_packet),
+        Err(e) => eprintln!("[-]Failed to send DISCONNECT: {}\n", e),
     }
 }
 
@@ -48,7 +48,7 @@ fn handle_client(
             {
                 Ok(connect_packet) =>
                  {
-                    println!("Received CONNECT packet: {:?}\n", connect_packet);
+                    println!("[+]Received CONNECT packet: {:?}\n", connect_packet);
 
                     // Create a CONNACK packet as a response
                     let connack_packet = ConnAckPacket::new(
@@ -62,15 +62,15 @@ fn handle_client(
                     // Send the CONNACK packet back to the client
                     match stream.write(&response) 
                     {
-                        Ok(_) => println!("Sent CONNACK package: {:?}\n", connack_packet),
-                        Err(e) => eprintln!("Error sending the CONNACK package: {}\n\n", e),
+                        Ok(_) => println!("[+]Sent CONNACK package: {:?}\n", connack_packet),
+                        Err(e) => eprintln!("[-]Error sending the CONNACK package: {}\n", e),
                     }
                 }
-                Err(e) => eprintln!("Error decoding CONNECT: {}\n", e), // Log decoding errors
+                Err(e) => eprintln!("[-]Error decoding CONNECT: {}\n", e), // Log decoding errors
             }
         }
-        Ok(_) => println!("Client disconnected: {:?}\n", stream.peer_addr()), // Handle empty read (disconnection)
-        Err(e) => println!("Error reading from stream: {}\n", e), // Log reading errors
+        Ok(_) => println!("[+]Client disconnected: {:?}\n", stream.peer_addr()), // Handle empty read (disconnection)
+        Err(e) => println!("[-]Error reading from stream: {}\n", e), // Log reading errors
     }
 
     //Starting ping time
@@ -93,15 +93,15 @@ fn handle_client(
                         // PUBLISH packet
                         if let Ok(packet) = PublishPacket::decode(&buffer[..size]) 
                         {
-                            println!("Received PUBLISH packet: {:?}\n", packet);
+                            println!("[+]Received PUBLISH packet: {:?}\n", packet);
                         
                             // Send PUBACK packet back to the sender
                             let puback_packet = PubAckPacket::new(packet.message_id);
                             let puback_response = puback_packet.encode();
                             match stream.write(&puback_response) 
                             {
-                                Ok(_) => println!("Sent PUBACK packet for message ID: {}\n", packet.message_id),
-                                Err(e) => eprintln!("Error sending PUBACK packet: {}\n", e),
+                                Ok(_) => println!("[+]Sent PUBACK packet for message ID: {}\n", packet.message_id),
+                                Err(e) => eprintln!("[-]Error sending PUBACK packet: {}\n", e),
                             }
                         
                             // Retrieve subscribers for the topic
@@ -112,14 +112,14 @@ fn handle_client(
                                         // Encode the entire PUBLISH packet
                                         let publish_response = packet.encode(); 
                                         match subscriber.write(&publish_response) {
-                                            Ok(_) => println!("Sent PUBLISH packet to subscriber: {:?}", subscriber.peer_addr()),
-                                            Err(e) => eprintln!("Error sending PUBLISH packet: {}", e),
+                                            Ok(_) => println!("[+]Sent PUBLISH packet to subscriber: {:?}\n", subscriber.peer_addr()),
+                                            Err(e) => eprintln!("[-]Error sending PUBLISH packet: {}\n", e),
                                         }
                                     }
                                 }
-                                println!("Message sent to topic: {}", packet.topic_name);
+                                println!("Message sent to topic: {}\n", packet.topic_name);
                             } else {
-                                println!("No subscribers for topic: {}", packet.topic_name);
+                                println!("No subscribers for topic: {}\n", packet.topic_name);
                             }
                         } 
                     }
@@ -129,7 +129,7 @@ fn handle_client(
                         // SUBSCRIBE packet
                         if let Ok(packet) = SubscribePacket::decode(&buffer[..size]) 
                         {
-                            println!("Received SUBSCRIBE packet: {:?}\n", packet);
+                            println!("[+]Received SUBSCRIBE packet: {:?}\n", packet);
                             // Prepare return codes for the subscription
                             let return_codes: Vec<u8> = packet
                             .qos_values
@@ -155,8 +155,8 @@ fn handle_client(
                             // Send the SUBACK packet back to the client
                             match stream.write(&suback_response) 
                             {
-                                Ok(_) => println!("Sent SUBACK : {:?}\n", suback_response),
-                                Err(e) => eprintln!("Error sending SUBACK packet: {}\n", e),
+                                Ok(_) => println!("[+]Sent SUBACK : {:?}\n", suback_response),
+                                Err(e) => eprintln!("[-]Error sending SUBACK packet: {}\n", e),
                             }
 
                             // Add client to the topic subscriptions
@@ -167,7 +167,7 @@ fn handle_client(
                                         .entry(topic.clone())
                                         .or_insert_with(Vec::new)
                                         .push(stream.try_clone().unwrap());
-                                    println!("Client added to topic list: {}\n", topic);
+                                    println!("A client added to topic list: {}\n", topic);
                                 }
                             }
                         }
@@ -185,12 +185,12 @@ fn handle_client(
                                 let pingresp_response = pingresp_packet.encode(); // Encode the PINGRESP packet
                                 match stream.write(&pingresp_response) {
                                     Ok(_) => {},
-                                    Err(e) => eprintln!("Error sending PINGRESP packet: {}\n", e),
+                                    Err(e) => eprintln!("[-]Error sending PINGRESP packet: {}\n", e),
                                 }
                             }
                             Err(err) => {
                                 // Invalid PINGREQ packet received
-                                eprintln!("Invalid PINGREQ packet: {}\n", err);
+                                eprintln!("[-]Invalid PINGREQ packet: {}\n", err);
                             }
                         }
                     }
@@ -198,20 +198,20 @@ fn handle_client(
                     14 => 
                     {
                         if let Ok(packet) = DisconnectPacket::decode(&buffer[..size]) {
-                            println!("Received DISCONNECT packet: {:?}\n", packet);
+                            println!("[+]Received DISCONNECT packet: {:?}\n", packet);
                             break;
                         }
                     }
 
                     _ => {
-                        println!("Unknown or unsupported packet type: {}\n", packet_type);
+                        println!("[-]Unknown or unsupported packet type: {}\n", packet_type);
                     }
                 }
 
                 if last_ping_time.elapsed() > Duration::from_secs(60) 
                 {
                     send_disconnect_packet(&mut stream, DisconnectReasonCode::KeepAliveTimeout);
-                    println!("No PINGREQ received for over 60 seconds. Closing connection.");
+                    println!("[-]No PINGREQ received for over 60 seconds. Closing connection.\n");
                     break;
                 }
 
@@ -219,12 +219,12 @@ fn handle_client(
             Ok(_) => 
             {
                 send_disconnect_packet(&mut stream, DisconnectReasonCode::NormalDisconnection);
-                println!("Client disconnected: {:?}\n", stream.peer_addr()); // Handle client disconnection
+                println!("[+]Client disconnected: {:?}\n", stream.peer_addr()); // Handle client disconnection
                 break;
             }
             Err(e) => 
             {
-                eprintln!("Error reading from stream: {}\n", e); // Log reading errors
+                eprintln!("[-]Error reading from stream: {}\n", e); // Log reading errors
                 break;
             }
         }
@@ -264,7 +264,7 @@ fn start_server()
         {
             Ok(stream) => 
             {
-                println!("Client connected: {:?}\n", stream.peer_addr());
+                println!("[+]Client connected: {:?}\n", stream.peer_addr());
 
                 // Lock the client list for modification
                 let mut clients_guard = clients.lock().unwrap(); 
@@ -281,7 +281,7 @@ fn start_server()
             }
             Err(e) => 
             {
-                println!("Error accepting connection: {}\n", e); // Log errors during connection acceptance
+                println!("[-]Error accepting connection: {}\n", e); // Log errors during connection acceptance
             }
         }
     }

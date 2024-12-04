@@ -38,8 +38,8 @@ fn send_connect_packet(mut stream: TcpStream)
 
     // Send the CONNECT packet to the server
     match stream.write(&packet) {
-        Ok(_) => println!("CONNECT packet sent: {:?}", connect_packet),
-        Err(e) => eprintln!("Failed to send CONNECT: {}", e),
+        Ok(_) => println!("[+]CONNECT packet sent: {:?}\n", connect_packet),
+        Err(e) => eprintln!("[-]Failed to send CONNECT: {}\n", e),
     }
 }
 
@@ -59,13 +59,13 @@ fn receive_connack_packet(mut stream: TcpStream)
             {
                 Ok(connack_packet) => 
                 {
-                    println!("Received CONNACK packet: {:?}", connack_packet);
+                    println!("[+]Received CONNACK packet: {:?}\n", connack_packet);
                 }
-                Err(e) => eprintln!("Failed to decode CONNACK: {}", e),
+                Err(e) => eprintln!("[-]Failed to decode CONNACK: {}\n", e),
             }
         }
-        Ok(_) => eprintln!("Empty package received"),
-        Err(e) => eprintln!("Error reading the stream: {}", e),
+        Ok(_) => eprintln!("[-]Empty package received\n"),
+        Err(e) => eprintln!("[-]Error reading the stream: {}\n", e),
     }
 }
 
@@ -89,8 +89,8 @@ fn send_publish_packet(mut stream: TcpStream, topic: &str, message: &str)
     // Send the PUBLISH packet to the server
     match stream.write(&packet) 
     {
-        Ok(_) => println!("PUBLISH packet sent: {:?}", publish_packet),
-        Err(e) => eprintln!("Failed to send PUBLISH: {}", e),
+        Ok(_) => println!("[+]PUBLISH packet sent: {:?}\n", publish_packet),
+        Err(e) => eprintln!("[-]Failed to send PUBLISH: {}\n", e),
     }
 }
 
@@ -108,8 +108,8 @@ fn send_subscribe_packet(mut stream: TcpStream, packet_id: u16, topic: &str) {
 
     // Send the SUBSCRIBE packet to the server
     match stream.write(&packet) {
-        Ok(_) => println!("SUBSCRIBE packet sent: {:?}", subscribe_packet),
-        Err(e) => eprintln!("Failed to send SUBSCRIBE: {}", e),
+        Ok(_) => println!("[+]SUBSCRIBE packet sent: {:?}\n", subscribe_packet),
+        Err(e) => eprintln!("[-]Failed to send SUBSCRIBE: {}\n", e),
     }
 }
 
@@ -121,8 +121,8 @@ fn send_disconnect_packet(stream: &mut TcpStream, reason_code: DisconnectReasonC
 
     // Send the Disconnect packet to the server
     match stream.write(&packet) {
-        Ok(_) => println!("DISCONNECT packet sent: {:?}", disconnect_packet),
-        Err(e) => eprintln!("Failed to send DISCONNECT: {}", e),
+        Ok(_) => println!("[+]DISCONNECT packet sent: {:?}\n", disconnect_packet),
+        Err(e) => eprintln!("[-]Failed to send DISCONNECT: {}\n", e),
     }
 }
 
@@ -151,7 +151,7 @@ fn packets_listener(mut stream: TcpStream, shutdown_flag: Arc<Mutex<bool>>) {
             let pingreq_packet = PingReqPacket;
             let pingreq_response = pingreq_packet.encode();
             if let Err(e) = stream.write(&pingreq_response) {
-                eprintln!("Error sending PINGREQ packet: {}", e);
+                eprintln!("[-]Error sending PINGREQ packet: {}\n", e);
                 break;
             }
             pending_ping = true;
@@ -170,52 +170,51 @@ fn packets_listener(mut stream: TcpStream, shutdown_flag: Arc<Mutex<bool>>) {
                         if let Ok(packet) = PublishPacket::decode(&buffer[..size]) {
                             let bytes = packet.payload;
                             let reconstructed_message = String::from_utf8(bytes).expect("Error al convertir bytes a string");
-                            println!("Received PUBLISH packet from {:?} topic: {:?}\n", packet.topic_name, reconstructed_message);
+                            println!("[+]Received PUBLISH packet from {:?} topic: {:?}\n", packet.topic_name, reconstructed_message);
                         }
                     }
                     4 => {
                         // PUBACK packet
                         if let Ok(packet) = PubAckPacket::decode(&buffer[..size]) {
-                            println!("Received PUBACK packet: {:?}\n", packet);
+                            println!("[+]Received PUBACK packet: {:?}\n", packet);
                         }
                     }
                     9 => {
                         // SUBACK packet
                         if let Ok(packet) = SubAckPacket::decode(&buffer[..size]) {
-                            println!("Received SUBACK packet: {:?}\n", packet);
+                            println!("[+]Received SUBACK packet: {:?}\n", packet);
                         }
                     }
                     13 =>
                     {
                         // Handle PINGRESP packet
                         if let Ok(_) = PingRespPacket::decode(&Bytes::copy_from_slice(&buffer[..size])) {
-                            println!("Received valid PINGRESP packet.");
                             pending_ping = false; // Reset pending_ping flag after receiving PINGRESP
                         } else {
-                            eprintln!("Invalid PINGRESP packet.\n");
+                            eprintln!("[-]Invalid PINGRESP packet.\n");
                         }
                     }
 
                     _ => {
                         // Handle other packet types or log them
-                        println!("Unhandled packet type: {}\n", packet_type);
+                        println!("[-]Unhandled packet type: {}\n", packet_type);
                     }
                 }
                 if last_ping_time.elapsed() > Duration::from_secs(60) 
                 {
-                    println!("No PINGREQ received for over 60 seconds. Closing connection.");
+                    println!("[-]No PINGREQ received for over 60 seconds. Closing connection.\n");
                     break;
                 }
             }
 
             Ok(_) => {
                 send_disconnect_packet(&mut stream, DisconnectReasonCode::ServerShuttingDown);
-                println!("Server disconnected: {:?}\n", stream.peer_addr());
+                println!("[-]Server disconnected: {:?}\n", stream.peer_addr());
                 break;
             }
             Err(e) => {
                 send_disconnect_packet(&mut stream, DisconnectReasonCode::DisconnectWithWillMessage);
-                println!("Error reading from stream: {}\n", e); // Log reading errors
+                println!("[-]Error reading from stream: {}\n", e); // Log reading errors
                 break;
             }
         }
@@ -235,18 +234,18 @@ fn start_client()
     match TcpStream::connect("127.0.0.1:1883") {
         Ok(mut stream) => 
         {
-            println!("Connected to MQTT server at 127.0.0.1:1883");
+            println!("Connected to MQTT server at 127.0.0.1:1883\n");
 
             // Send the connect package via the stream
-            send_connect_packet(stream.try_clone().expect("Error cloning the stream"));
+            send_connect_packet(stream.try_clone().expect("[-]Error cloning the stream\n"));
 
             // Receive the response (CONNACK)
-            receive_connack_packet(stream.try_clone().expect("Error cloning the stream"));
+            receive_connack_packet(stream.try_clone().expect("[-]Error cloning the stream\n"));
 
             let listener_flag = Arc::clone(&shutdown_flag);
 
             // Start the background thread for listening to publications
-            let listener_stream = stream.try_clone().expect("Error cloning the stream");
+            let listener_stream = stream.try_clone().expect("[-]Error cloning the stream\n");
             
             thread::spawn(move || {
                 packets_listener(listener_stream, listener_flag);
@@ -257,7 +256,7 @@ fn start_client()
                 let choice = display_menu();
                 // Check if the listener thread has finished
                 if *shutdown_flag.lock().unwrap() {
-                    println!("Listener thread finished, exiting.");
+                    println!("Listener thread finished, exiting.\n");
                     break;
                 }
                 match choice {
@@ -265,7 +264,7 @@ fn start_client()
                         // Option 1: Publish message
                         let topic = "General";
                         let message = "Hello MQTT!";
-                        send_publish_packet(stream.try_clone().expect("Error cloning the stream"), topic, message);
+                        send_publish_packet(stream.try_clone().expect("[-]Error cloning the stream\n"), topic, message);
                         thread::sleep(Duration::from_millis(100));
                     }
                     2 => {
@@ -285,22 +284,22 @@ fn start_client()
                             send_subscribe_packet(stream.try_clone().expect("Error cloning the stream"), 1, selected_topic); // Packet ID set to 1 for this example
                             thread::sleep(Duration::from_millis(100));
                         } else {
-                            println!("Invalid selection.");
+                            println!("[-]Invalid selection.\n");
                         }
                     }
                     3 => 
                     {
                         send_disconnect_packet(&mut stream, DisconnectReasonCode::NormalDisconnection);
-                        println!("Disconnecting...");
+                        println!("Disconnecting...\n");
                         break;
                     }
                     _ => {
-                        println!("Invalid selection. Please try again.");
+                        println!("[-]Invalid selection. Please try again.\n");
                     }
                 }
             }
         }
-        Err(e) => eprintln!("Failed to connect to server: {}", e),
+        Err(e) => eprintln!("[-]Failed to connect to server: {}\n", e),
     }
 }
 
