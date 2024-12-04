@@ -170,7 +170,7 @@ fn packets_listener(mut stream: TcpStream, shutdown_flag: Arc<Mutex<bool>>) {
                         if let Ok(packet) = PublishPacket::decode(&buffer[..size]) {
                             let bytes = packet.payload;
                             let reconstructed_message = String::from_utf8(bytes).expect("Error al convertir bytes a string");
-                            println!("[+]Received PUBLISH packet from {:?} topic: {:?}\n", packet.topic_name, reconstructed_message);
+                            println!("Received PUBLISH message from {:?} topic: {:?}\n", packet.topic_name, reconstructed_message);
                         }
                     }
                     4 => {
@@ -210,6 +210,10 @@ fn packets_listener(mut stream: TcpStream, shutdown_flag: Arc<Mutex<bool>>) {
             Ok(_) => {
                 send_disconnect_packet(&mut stream, DisconnectReasonCode::ServerShuttingDown);
                 println!("[-]Server disconnected: {:?}\n", stream.peer_addr());
+                // Signal the main thread that the listener has finished
+                let mut shutdown = shutdown_flag.lock().unwrap();
+                *shutdown = true;
+                println!("Packets listener thread finished. Please type any number to end\n");
                 break;
             }
             Err(e) => {
@@ -220,10 +224,7 @@ fn packets_listener(mut stream: TcpStream, shutdown_flag: Arc<Mutex<bool>>) {
         }
     }
 
-    // Signal the main thread that the listener has finished
-    let mut shutdown = shutdown_flag.lock().unwrap();
-    *shutdown = true;
-    println!("Packets listener thread finished. Please type any number to end\n");
+
 }
 
 fn start_client() 
