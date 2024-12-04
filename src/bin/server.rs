@@ -195,14 +195,6 @@ fn handle_client(
                         }
                     }
 
-                    14 => 
-                    {
-                        if let Ok(packet) = DisconnectPacket::decode(&buffer[..size]) {
-                            println!("Received DISCONNECT packet: {:?}\n", packet);
-                            break;
-                        }
-                    }
-
                     _ => {
                         println!("Unknown or unsupported packet type: {}\n", packet_type);
                     }

@@ -195,14 +195,6 @@ fn packets_listener(mut stream: TcpStream) {
                         }
                     }
 
-                    14 => 
-                    {
-                        if let Ok(packet) = DisconnectPacket::decode(&buffer[..size]) 
-                        {
-                            println!("Received DISCONNECT packet: {:?}\n", packet);
-                            break; // Close the connection loop
-                        }
-                    }
                     _ => {
                         // Handle other packet types or log them
                         println!("Unhandled packet type: {}\n", packet_type);
