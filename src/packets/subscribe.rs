@@ -30,7 +30,7 @@ impl SubscribePacket {
 
         // Calculate remaining length, which includes the length of the packet ID and topic filters
         let mut remaining_length = 2; // 2 bytes for packet ID
-        for (i, topic) in self.topic_filters.iter().enumerate() {
+        for (_i, topic) in self.topic_filters.iter().enumerate() {
             remaining_length += 2 + topic.len() + 1; // 2 bytes for topic length, topic bytes, 1 byte for QoS
         }
 

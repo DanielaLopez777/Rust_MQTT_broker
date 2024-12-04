@@ -73,7 +73,7 @@ impl DisconnectPacket {
 
         // Fixed header
         buffer.push(0xE0); // Disconnect packet type and flags
-        let variable_header_len = 1 + self.properties.iter().map(|(k, v)| 1 + v.len()).sum::<usize>();
+        let variable_header_len = 1 + self.properties.iter().map(|(_k, v)| 1 + v.len()).sum::<usize>();
         buffer.push(variable_header_len as u8);
 
         // Variable header
