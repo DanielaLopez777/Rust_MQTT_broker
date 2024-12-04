@@ -147,7 +147,7 @@ fn packets_listener(mut stream: TcpStream, shutdown_flag: Arc<Mutex<bool>>) {
 
     loop {
         // Send PINGREQ every 60 seconds if no other packets are being processed
-        if last_ping_time.elapsed() > Duration::from_secs(60) && !pending_ping {
+        if !pending_ping {
             let pingreq_packet = PingReqPacket;
             let pingreq_response = pingreq_packet.encode();
             if let Err(e) = stream.write(&pingreq_response) {
