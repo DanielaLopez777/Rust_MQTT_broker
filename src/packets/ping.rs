@@ -16,17 +16,6 @@ impl PingReqPacket {
         buf.put_u8(0x00);    // Remaining length is 0 for PINGREQ
         buf
     }
-
-    /// Decodes a PINGREQ packet from bytes
-    pub fn decode(bytes: &Bytes) -> Result<Self, &'static str> {
-        if bytes.len() != 2 {
-            return Err("Invalid PINGREQ packet length");
-        }
-        if bytes[0] != PINGREQ || bytes[1] != 0x00 {
-            return Err("Invalid PINGREQ packet format");
-        }
-        Ok(PingReqPacket)
-    }
 }
 
 /// Represents an MQTT PINGRESP Packet

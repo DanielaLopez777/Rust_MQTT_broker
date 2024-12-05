@@ -4,7 +4,6 @@ use std::net::{TcpListener, TcpStream}; // Provides TCP networking capabilities
 use std::thread; // Provides threading utilities for concurrent execution
 use std::io::{Read, Write}; // Provides I/O traits for reading and writing
 use std::time::{Duration, Instant};
-use bytes::Bytes;
 use mqtt_broker::packets::{
     connect::ConnectPacket, // For handling MQTT CONNECT packets
     connack::{ConnAckPacket, ConnAckReasonCode}, // For creating CONNACK response packets
@@ -12,7 +11,7 @@ use mqtt_broker::packets::{
     puback::PubAckPacket,
     subscribe::SubscribePacket,
     suback::SubAckPacket,
-    ping::{PingRespPacket, PingReqPacket},
+    ping::PingRespPacket,
     disconnect::{DisconnectPacket, DisconnectReasonCode}
 };
 
@@ -174,25 +173,18 @@ fn handle_client(
                     }
                     12 => 
                     {
-                        // PINGREQ packet
-                        match PingReqPacket::decode(&Bytes::copy_from_slice(&buffer[..size])) {
-                            Ok(_) => {
-                                // Valid PINGREQ packet received
-                                last_ping_time = Instant::now(); // Update the timestamp when PINGREQ is received
 
-                                // Respond with PINGRESP packet
-                                let pingresp_packet = PingRespPacket; // Create an instance of PingRespPacket
-                                let pingresp_response = pingresp_packet.encode(); // Encode the PINGRESP packet
-                                match stream.write(&pingresp_response) {
-                                    Ok(_) => {},
-                                    Err(e) => eprintln!("[-]Error sending PINGRESP packet: {}\n", e),
-                                }
-                            }
-                            Err(err) => {
-                                // Invalid PINGREQ packet received
-                                eprintln!("[-]Invalid PINGREQ packet: {}\n", err);
-                            }
+                        // Valid PINGREQ packet received
+                        last_ping_time = Instant::now(); // Update the timestamp when PINGREQ is received
+
+                        // Respond with PINGRESP packet
+                        let pingresp_packet = PingRespPacket; // Create an instance of PingRespPacket
+                        let pingresp_response = pingresp_packet.encode(); // Encode the PINGRESP packet
+                        match stream.write(&pingresp_response) {
+                            Ok(_) => {},
+                            Err(e) => eprintln!("[-]Error sending PINGRESP packet: {}\n", e),
                         }
+                        
                     }
 
                     14 => 

@@ -3,7 +3,6 @@ use std::io::{Read, Write};
 use std::io::{self};
 use std::thread;
 use std::time::{Duration, Instant};
-use bytes::Bytes;
 use std::sync::{Arc, Mutex};
 use mqtt_broker::packets::{
     connect::ConnectPacket,
@@ -12,7 +11,7 @@ use mqtt_broker::packets::{
     puback::PubAckPacket,
     subscribe::SubscribePacket, 
     suback::SubAckPacket, 
-    ping::{PingRespPacket, PingReqPacket},
+    ping:: PingReqPacket,
     disconnect::{DisconnectPacket, DisconnectReasonCode}
 };
 
@@ -143,18 +142,17 @@ fn packets_listener(mut stream: TcpStream, shutdown_flag: Arc<Mutex<bool>>) {
     let mut buffer = [0u8; 1024]; // Buffer to store incoming data
     //Starting ping time
     let mut last_ping_time = Instant::now();
-    let mut pending_ping = false; // Flag to track if we are waiting for PINGRESP
 
     loop {
         // Send PINGREQ every 60 seconds if no other packets are being processed
-        if !pending_ping {
-            let pingreq_packet = PingReqPacket;
-            let pingreq_response = pingreq_packet.encode();
-            if let Err(e) = stream.write(&pingreq_response) {
-                eprintln!("[-]Error sending PINGREQ packet: {}\n", e);
-                break;
-            }
-            pending_ping = true;
+        let pingreq_packet = PingReqPacket;
+        let pingreq_response = pingreq_packet.encode();
+        if let Err(e) = stream.write(&pingreq_response) {
+            eprintln!("[-]Error sending PINGREQ packet: {}\n", e);
+            break;
+        }
+        else
+        {
             last_ping_time = Instant::now();
         }
 
@@ -187,12 +185,9 @@ fn packets_listener(mut stream: TcpStream, shutdown_flag: Arc<Mutex<bool>>) {
                     }
                     13 =>
                     {
-                        // Handle PINGRESP packet
-                        if let Ok(_) = PingRespPacket::decode(&Bytes::copy_from_slice(&buffer[..size])) {
-                            pending_ping = false; // Reset pending_ping flag after receiving PINGRESP
-                        } else {
-                            eprintln!("[-]Invalid PINGRESP packet.\n");
-                        }
+                        // A pingresp was received
+                        last_ping_time = Instant::now();                        
+
                     }
 
                     _ => {
