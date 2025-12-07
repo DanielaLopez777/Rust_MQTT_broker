@@ -230,7 +230,7 @@ fn start_client()
     match TcpStream::connect("192.168.100.10:1883") {
         Ok(mut stream) => 
         {
-            println!("Connected to MQTT server at 127.0.0.1:1883\n");
+            println!("Connected to MQTT server at 192.168.100.10:1883\n");
 
             // Send the connect package via the stream
             send_connect_packet(stream.try_clone().expect("[-]Error cloning the stream\n"));
