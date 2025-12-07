@@ -241,8 +241,8 @@ fn handle_client(
 fn start_server() 
 {
     // Bind the server to a local address and port
-    let listener = TcpListener::bind("127.0.0.1:1883").expect("Error starting the server"); 
-    println!("\nMQTT server started on 127.0.0.1:1883\n");
+    let listener = TcpListener::bind("0.0.0.0:1883").expect("Error starting the server"); 
+    println!("\nMQTT server started on 0.0.0.0:1883\n");
 
     // Shared list of connected clients
     let clients: Arc<Mutex<Vec<TcpStream>>> = Arc::new(Mutex::new(Vec::new())); 
