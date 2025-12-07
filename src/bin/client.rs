@@ -227,7 +227,7 @@ fn start_client()
     let shutdown_flag = Arc::new(Mutex::new(false)); // Flag to track if the listener thread has finished
 
     // Connect to the MQTT server at localhost on port 1883
-    match TcpStream::connect("127.0.0.1:1883") {
+    match TcpStream::connect("192.168.100.10:1883") {
         Ok(mut stream) => 
         {
             println!("Connected to MQTT server at 127.0.0.1:1883\n");
