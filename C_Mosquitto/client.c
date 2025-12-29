@@ -12,9 +12,6 @@ static void on_connect(struct mosquitto *mosq, void *obj, int rc)
 {
     if(rc == 0) {
         printf("[+] Connected to broker\n");
-        mosquitto_subscribe(mosq, NULL, "General", 1);
-        mosquitto_subscribe(mosq, NULL, "Status", 1);
-        mosquitto_subscribe(mosq, NULL, "Random", 1);
     } else {
         printf("[-] Connect failed: %d\n", rc);
     }
@@ -23,7 +20,7 @@ static void on_connect(struct mosquitto *mosq, void *obj, int rc)
 static void on_message(struct mosquitto *mosq, void *obj,
                        const struct mosquitto_message *msg)
 {
-    printf("[+] Message received\n");
+    printf("\n[+] Message received\n");
     printf("    Topic: %s\n", msg->topic);
     printf("    Payload: %s\n\n", (char *)msg->payload);
 }
@@ -46,7 +43,8 @@ int main(void)
         return 1;
     }
 
-    mosquitto_username_pw_set(mosq, "user", "password");
+    // Comenta esta línea si tu broker permite anonymous
+    // mosquitto_username_pw_set(mosq, "user", "password");
 
     mosquitto_connect_callback_set(mosq, on_connect);
     mosquitto_message_callback_set(mosq, on_message);
@@ -58,20 +56,20 @@ int main(void)
         return 1;
     }
 
-    // Start network loop in background thread
     mosquitto_loop_start(mosq);
 
-    // Simple menu loop
     while(1) {
         int choice;
         char topic[64];
         char message[256];
 
-        printf("1. Publish\n");
-        printf("2. Exit\n");
+        printf("\n1. Publish\n");
+        printf("2. Subscribe\n");
+        printf("3. Exit\n");
         printf("> ");
+
         scanf("%d", &choice);
-        getchar(); // clear newline
+        getchar(); // limpiar buffer
 
         if(choice == 1) {
             printf("Topic: ");
@@ -93,7 +91,18 @@ int main(void)
             );
         }
         else if(choice == 2) {
+            printf("Topic to subscribe: ");
+            fgets(topic, sizeof(topic), stdin);
+            topic[strcspn(topic, "\n")] = 0;
+
+            mosquitto_subscribe(mosq, NULL, topic, 1);
+            printf("[+] Subscribed to topic: %s\n", topic);
+        }
+        else if(choice == 3) {
             break;
+        }
+        else {
+            printf("[-] Invalid option\n");
         }
     }
 
