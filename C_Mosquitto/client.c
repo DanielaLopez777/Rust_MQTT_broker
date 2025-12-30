@@ -34,15 +34,21 @@ int main(void)
 {
     struct mosquitto *mosq;
     int rc;
+    int running = 1;
+
+    /* ---------- client_id ÚNICO ---------- */
+    char client_id[64];
+    snprintf(client_id, sizeof(client_id), "client_%d", getpid());
 
     mosquitto_lib_init();
 
-    mosq = mosquitto_new("client_c_1", true, NULL);
+    mosq = mosquitto_new(client_id, true, NULL);
     if(!mosq) {
         fprintf(stderr, "[-] Error creating client\n");
         return 1;
     }
 
+    /* Para cuando el broker NO es anónimo */
     // mosquitto_username_pw_set(mosq, "user", "password");
 
     mosquitto_connect_callback_set(mosq, on_connect);
@@ -55,9 +61,7 @@ int main(void)
         return 1;
     }
 
-    mosquitto_loop_start(mosq);
-
-    while(1) {
+    while(running) {
         int choice;
         char topic[64];
         char message[256];
@@ -68,7 +72,7 @@ int main(void)
         printf("> ");
 
         scanf("%d", &choice);
-        getchar(); // limpiar buffer
+        getchar();  // limpiar buffer stdin
 
         if(choice == 1) {
             printf("Topic: ");
@@ -98,12 +102,13 @@ int main(void)
             printf("[+] Subscribed to topic: %s\n", topic);
         }
         else if(choice == 3) {
-            break;
+            running = 0;
         }
         else {
             printf("[-] Invalid option\n");
         }
 
+        /* ---------- loop MQTT ESTABLE ---------- */
         mosquitto_loop(mosq, 100, 1);
     }
 
