@@ -108,7 +108,6 @@ int main(void)
     }
 
     mosquitto_disconnect(mosq);
-    mosquitto_loop_stop(mosq);
     mosquitto_destroy(mosq);
     mosquitto_lib_cleanup();
 
