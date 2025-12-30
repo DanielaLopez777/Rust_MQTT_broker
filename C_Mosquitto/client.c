@@ -43,7 +43,6 @@ int main(void)
         return 1;
     }
 
-    // Comenta esta línea si tu broker permite anonymous
     // mosquitto_username_pw_set(mosq, "user", "password");
 
     mosquitto_connect_callback_set(mosq, on_connect);
@@ -104,6 +103,8 @@ int main(void)
         else {
             printf("[-] Invalid option\n");
         }
+
+        mosquitto_loop(mosq, 100, 1);
     }
 
     mosquitto_disconnect(mosq);
