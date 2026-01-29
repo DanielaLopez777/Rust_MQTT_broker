@@ -4,6 +4,7 @@ use std::io::{self};
 use std::thread;
 use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
+use std::env;
 use mqtt_broker::packets::{
     connect::ConnectPacket,
     connack::ConnAckPacket,
@@ -85,16 +86,9 @@ fn send_publish_packet(mut stream: TcpStream, topic: &str, message: &str)
     // Encode the PUBLISH packet into bytes for transmission
     let packet = publish_packet.encode();
 
-    // Send the PUBLISH packet to the server
-    match stream.write(&packet) 
-    {
-        Ok(_) => println!("[+]PUBLISH packet sent: {:?}\n", publish_packet),
-        Err(e) => eprintln!("[-]Failed to send PUBLISH: {}\n", e),
-    }
+    let _ = stream.write(&packet);
 }
 
-/// Sends a SUBSCRIBE packet to the server.
-/// The SUBSCRIBE packet allows the client to subscribe to topics.
 fn send_subscribe_packet(mut stream: TcpStream, packet_id: u16, topic: &str) {
     // Predefined QoS values (you can adjust this as needed)
     let qos_values = vec![1];
@@ -115,220 +109,90 @@ fn send_subscribe_packet(mut stream: TcpStream, packet_id: u16, topic: &str) {
 fn send_disconnect_packet(stream: &mut TcpStream, reason_code: DisconnectReasonCode) {
     let mut disconnect_packet = DisconnectPacket::new(reason_code);
     disconnect_packet.add_property(0x11, vec![0x01, 0x02]);
-
     let packet = disconnect_packet.encode();
-
-    // Send the Disconnect packet to the server
-    match stream.write(&packet) {
-        Ok(_) => println!("[+]DISCONNECT packet sent: {:?}\n", disconnect_packet),
-        Err(e) => eprintln!("[-]Failed to send DISCONNECT: {}\n", e),
-    }
-}
-
-/// Displays the menu options and handles user input for actions.
-fn display_menu() -> u8 {
-    println!("Please select an option:");
-    println!("1. Publish");
-    println!("2. Subscribe");
-    println!("3. Disconnect");
-
-    let mut choice = String::new();
-    io::stdin().read_line(&mut choice).expect("Failed to read line");
-
-    choice.trim().parse().unwrap_or(0) // Default to 0 if invalid input
+    let _ = stream.write(&packet);
 }
 
 fn packets_listener(mut stream: TcpStream, shutdown_flag: Arc<Mutex<bool>>) {
-    let mut buffer = [0u8; 1024]; // Buffer to store incoming data
-    //Starting ping time
+    let mut buffer = [0u8; 1024];
     let mut last_ping_time = Instant::now();
 
     loop {
-        // Send PINGREQ every 60 seconds if no other packets are being processed
         let pingreq_packet = PingReqPacket;
         let pingreq_response = pingreq_packet.encode();
-        if let Err(e) = stream.write(&pingreq_response) {
-            eprintln!("[-]Error sending PINGREQ packet: {}\n", e);
-            break;
-        }
-        else
-        {
-            last_ping_time = Instant::now();
-        }
+        let _ = stream.write(&pingreq_response);
 
         match stream.read(&mut buffer) {
             Ok(size) if size > 0 => {
-                // Determine packet type (for demonstration; replace with actual packet identification logic)
-                let packet_type = buffer[0] >> 4; // MQTT packet type is in the top 4 bits of the first byte.
+                let packet_type = buffer[0] >> 4;
 
-                match packet_type 
-                {
-                    3 => {
-                        // PUBLISH packet
-                        if let Ok(packet) = PublishPacket::decode(&buffer[..size]) {
-                            let bytes = packet.payload;
-                            let reconstructed_message = String::from_utf8(bytes).expect("Error al convertir bytes a string");
-                            println!("Received PUBLISH message from {:?} topic: {:?}\n", packet.topic_name, reconstructed_message);
-                        }
-                    }
-                    4 => {
-                        // PUBACK packet
-                        if let Ok(packet) = PubAckPacket::decode(&buffer[..size]) {
-                            println!("[+]Received PUBACK packet: {:?}\n", packet);
-                        }
-                    }
-                    9 => {
-                        // SUBACK packet
-                        if let Ok(packet) = SubAckPacket::decode(&buffer[..size]) {
-                            println!("[+]Received SUBACK packet: {:?}\n", packet);
-                        }
-                    }
-                    13 =>
-                    {
-                        // A pingresp was received
-                        last_ping_time = Instant::now();                        
-
-                    }
-
-                    _ => {
-                        // Handle other packet types or log them
-                        println!("[-]Unhandled packet type: {}\n", packet_type);
+                if packet_type == 3 {
+                    if let Ok(packet) = PublishPacket::decode(&buffer[..size]) {
+                        let msg = String::from_utf8(packet.payload).unwrap();
+                        println!("{}: {}", packet.topic_name, msg);
                     }
                 }
-                if last_ping_time.elapsed() > Duration::from_secs(60) 
-                {
-                    println!("[-]No PINGREQ received for over 60 seconds. Closing connection.\n");
-                    break;
-                }
+
+                last_ping_time = Instant::now();
             }
-
-            Ok(_) => {
-                send_disconnect_packet(&mut stream, DisconnectReasonCode::ServerShuttingDown);
-                println!("[-]Server disconnected: {:?}\n", stream.peer_addr());
-                // Signal the main thread that the listener has finished
+            _ => {
                 let mut shutdown = shutdown_flag.lock().unwrap();
                 *shutdown = true;
-                println!("Packets listener thread finished. Please type any number to end\n");
-                break;
-            }
-            Err(e) => {
-                send_disconnect_packet(&mut stream, DisconnectReasonCode::DisconnectWithWillMessage);
-                println!("[-]Error reading from stream: {}\n", e); // Log reading errors
                 break;
             }
         }
+
+        if last_ping_time.elapsed() > Duration::from_secs(60) {
+            break;
+        }
     }
-
-
 }
 
 fn start_client() 
 {
-    let shutdown_flag = Arc::new(Mutex::new(false)); // Flag to track if the listener thread has finished
+    let args: Vec<String> = env::args().collect();
+    let mode = args.get(1).map(|s| s.as_str()).unwrap_or("sub");
 
-    // Connect to the MQTT server at localhost on port 1883
+    let shutdown_flag = Arc::new(Mutex::new(false));
+
     match TcpStream::connect("192.168.100.10:1883") {
         Ok(mut stream) => 
         {
-            println!("Connected to MQTT server at 192.168.100.10:1883\n");
+            send_connect_packet(stream.try_clone().unwrap());
+            receive_connack_packet(stream.try_clone().unwrap());
 
-            // Send the connect package via the stream
-            send_connect_packet(stream.try_clone().expect("[-]Error cloning the stream\n"));
+            if mode == "sub" {
+                send_subscribe_packet(stream.try_clone().unwrap(), 1, "test");
+            }
 
-            // Receive the response (CONNACK)
-            receive_connack_packet(stream.try_clone().expect("[-]Error cloning the stream\n"));
+            if mode == "pub" {
+                send_publish_packet(
+                    stream.try_clone().unwrap(),
+                    "test",
+                    "hola"
+                );
+            }
 
+            let listener_stream = stream.try_clone().unwrap();
             let listener_flag = Arc::clone(&shutdown_flag);
 
-            // Start the background thread for listening to publications
-            let listener_stream = stream.try_clone().expect("[-]Error cloning the stream\n");
-            
             thread::spawn(move || {
                 packets_listener(listener_stream, listener_flag);
             });
 
-            // Menu for user actions
             loop {
-                let choice = display_menu();
-                // Check if the listener thread has finished
                 if *shutdown_flag.lock().unwrap() {
-                    println!("Listener thread finished, exiting.\n");
                     break;
                 }
-                match choice {
-                    1 => {
-                        // Option 1: Publish message
-                        let topics = vec!["General", "Status", "Random"]; // Predefined topics
-                        println!("Select a topic to publish to:");
-                        for (index, topic) in topics.iter().enumerate() {
-                            println!("{}: {}", index + 1, topic);
-                        }
-
-                        let mut topic_choice = String::new();
-                        io::stdin()
-                            .read_line(&mut topic_choice)
-                            .expect("Failed to read line");
-
-                        let topic_choice: usize = topic_choice.trim().parse().unwrap_or(0);
-                        if topic_choice > 0 && topic_choice <= topics.len() {
-                            let selected_topic = topics[topic_choice - 1];
-
-                            println!("Enter the message to send:");
-                            let mut message = String::new();
-                            io::stdin()
-                                .read_line(&mut message)
-                                .expect("Failed to read line");
-                            let message = message.trim(); // Remove trailing newline characters
-
-                            send_publish_packet(
-                                stream.try_clone().expect("Error cloning the stream"),
-                                selected_topic,
-                                message,
-                            );
-                            thread::sleep(Duration::from_millis(100));
-                        } 
-                        else {
-                            println!("[-]Invalid topic selection.\n");
-                        }
-                    }
-                    2 => {
-                        // Option 2: Subscribe to a topic
-                        let topics = vec!["General", "Status", "Random"]; // Predefined topics
-                        println!("Select a topic to subscribe to:");
-                        for (index, topic) in topics.iter().enumerate() {
-                            println!("{}: {}", index + 1, topic);
-                        }
-
-                        let mut topic_choice = String::new();
-                        io::stdin().read_line(&mut topic_choice).expect("Failed to read line");
-
-                        let topic_choice: usize = topic_choice.trim().parse().unwrap_or(0);
-                        if topic_choice > 0 && topic_choice <= topics.len() {
-                            let selected_topic = topics[topic_choice - 1];
-                            send_subscribe_packet(stream.try_clone().expect("Error cloning the stream"), 1, selected_topic); // Packet ID set to 1 for this example
-                            thread::sleep(Duration::from_millis(100));
-                        } else {
-                            println!("[-]Invalid selection.\n");
-                        }
-                    }
-                    3 => 
-                    {
-                        send_disconnect_packet(&mut stream, DisconnectReasonCode::NormalDisconnection);
-                        println!("Disconnecting...\n");
-                        break;
-                    }
-                    _ => {
-                        println!("[-]Invalid selection. Please try again.\n");
-                    }
-                }
+                thread::sleep(Duration::from_secs(1));
             }
+
+            send_disconnect_packet(&mut stream, DisconnectReasonCode::NormalDisconnection);
         }
-        Err(e) => eprintln!("[-]Failed to connect to server: {}\n", e),
+        Err(_) => {}
     }
 }
 
-/// Entry point for the MQTT client.
-/// Calls the start_client function to begin communication.
 fn main() {
     start_client();
 }
