@@ -167,43 +167,52 @@ fn start_client()
 
             if mode == "pub" {
                 let payload_size: usize = args.get(2)
-                        .expect("Missing payload size")
-                        .parse()
-                        .expect("Invalid payload size");
+                    .expect("Missing payload size")
+                    .parse()
+                    .expect("Invalid payload size");
 
-                    let execution_time: u64 = args.get(3)
-                        .expect("Missing execution time")
-                        .parse()
-                        .expect("Invalid execution time");
+                let execution_time: u64 = args.get(3)
+                    .expect("Missing execution time")
+                    .parse()
+                    .expect("Invalid execution time");
 
-                    let publish_frequency: u64 = args.get(4)
-                        .expect("Missing publish frequency")
-                        .parse()
-                        .expect("Invalid publish frequency");
+                let publish_frequency: u64 = args.get(4)
+                    .expect("Missing publish frequency")
+                    .parse()
+                    .expect("Invalid publish frequency");
 
-                    let publish_interval = Duration::from_secs(publish_frequency);
+                let publish_interval = Duration::from_secs(publish_frequency);
 
-                    // Genera automáticamente el payload con el tamaño indicado
-                    let payload = "A".repeat(payload_size);
+                let payload = "A".repeat(payload_size);
 
-                    let program_start = Instant::now();
+                // Cantidad máxima de mensajes esperados
+                let total_messages = execution_time / publish_frequency;
 
-                    while program_start.elapsed() < Duration::from_secs(execution_time) {
+                let mut message_count = 0;
 
-                        let publish_start = Instant::now();
+                let program_start = Instant::now();
 
-                        send_publish_packet(
-                            stream.try_clone().unwrap(),
-                            "test",
-                            &payload
-                        );
+                while program_start.elapsed() < Duration::from_secs(execution_time)
+                    && message_count < total_messages
+                {
+                    let publish_start = Instant::now();
 
-                        let elapsed = publish_start.elapsed();
+                    send_publish_packet(
+                        stream.try_clone().unwrap(),
+                        "test",
+                        &payload
+                    );
 
-                        if elapsed < publish_interval {
-                            thread::sleep(publish_interval - elapsed);
-                        }
+                    message_count += 1;
+
+                    let elapsed = publish_start.elapsed();
+
+                    if elapsed < publish_interval {
+                        thread::sleep(publish_interval - elapsed);
                     }
+                }
+
+                println!("Total messages sent: {}", message_count);
             }
 
             let listener_stream = stream.try_clone().unwrap();
