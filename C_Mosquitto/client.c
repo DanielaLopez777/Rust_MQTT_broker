@@ -9,6 +9,11 @@
 #define PORT 1883
 #define TOPIC "test"
 
+volatile int running = 1;
+
+/* ================================
+   Tiempo actual
+================================ */
 double current_time()
 {
     struct timeval tv;
@@ -17,7 +22,7 @@ double current_time()
 }
 
 /* ================================
-   MESSAGE CALLBACK
+   Callback subscriber
 ================================ */
 void on_message(struct mosquitto *mosq, void *userdata,
                 const struct mosquitto_message *msg)
@@ -27,26 +32,21 @@ void on_message(struct mosquitto *mosq, void *userdata,
 }
 
 /* ================================
-   SUBSCRIBER
+   Subscriber
 ================================ */
-void run_subscriber()
+void run_subscriber(int id)
 {
     char client_id[50];
-    sprintf(client_id, "sub_%d", getpid());
+    sprintf(client_id, "sub_%d", id);
 
     mosquitto_lib_init();
 
     struct mosquitto *mosq =
-        mosquitto_new(client_id, 1, NULL);
+        mosquitto_new(client_id, true, NULL);
 
     mosquitto_message_callback_set(mosq, on_message);
 
-    if (mosquitto_connect(mosq, BROKER, PORT, 60))
-    {
-        printf("Connection error\n");
-        return;
-    }
-
+    mosquitto_connect(mosq, BROKER, PORT, 60);
     mosquitto_subscribe(mosq, NULL, TOPIC, 1);
 
     mosquitto_loop_forever(mosq, -1, 1);
@@ -56,54 +56,58 @@ void run_subscriber()
 }
 
 /* ================================
-   PUBLISHER
+   Publisher CONTROLADO
 ================================ */
-void run_publisher(int payload_size,
+void run_publisher(int id,
+                   int payload_size,
                    int execution_time,
                    double publish_frequency)
 {
     char client_id[50];
-    sprintf(client_id, "pub_%d", getpid());
+    sprintf(client_id, "pub_%d", id);
 
     mosquitto_lib_init();
 
     struct mosquitto *mosq =
-        mosquitto_new(client_id, 1, NULL);
+        mosquitto_new(client_id, true, NULL);
 
-    if (mosquitto_connect(mosq, BROKER, PORT, 60))
-    {
-        printf("Connection error\n");
-        return;
-    }
+    mosquitto_connect(mosq, BROKER, PORT, 60);
 
     char *payload = malloc(payload_size);
     memset(payload, 'A', payload_size);
 
     int message_count = 0;
-    double start = current_time();
 
-    while ((current_time() - start) < execution_time)
+    double program_start = current_time();
+    double next_publish = program_start;
+
+    while ((current_time() - program_start) < execution_time)
     {
-        double t0 = current_time();
+        double now = current_time();
 
-        mosquitto_publish(
-            mosq,
-            NULL,
-            TOPIC,
-            payload_size,
-            payload,
-            1,
-            0);
+        /* Procesar red MQTT SIEMPRE */
+        mosquitto_loop(mosq, 0, 1);
 
-        message_count++;
+        if (now >= next_publish)
+        {
+            mosquitto_publish(
+                mosq,
+                NULL,
+                TOPIC,
+                payload_size,
+                payload,
+                1,
+                0);
 
-        double elapsed = current_time() - t0;
+            message_count++;
+            next_publish += publish_frequency;
+        }
 
-        if (elapsed < publish_frequency)
-            usleep((publish_frequency - elapsed) * 1000000);
+        usleep(1000);
     }
 
-    printf("PID %d sent %d messages\n", getpid(), message_count);
+    printf("Publisher %d sent %d messages\n",
+           id, message_count);
 
     free(payload);
 
@@ -117,24 +121,31 @@ void run_publisher(int payload_size,
 ================================ */
 int main(int argc, char *argv[])
 {
-    if (argc < 2)
+    if (argc < 3)
     {
         printf("Usage:\n");
-        printf("%s sub\n", argv[0]);
-        printf("%s pub payload exec_time frequency\n", argv[0]);
+        printf("sub id\n");
+        printf("pub id payload exec_time freq\n");
         return 1;
     }
 
     if (!strcmp(argv[1], "sub"))
-        run_subscriber();
-
+    {
+        run_subscriber(atoi(argv[2]));
+    }
     else if (!strcmp(argv[1], "pub"))
     {
-        int payload = atoi(argv[2]);
-        int exec_time = atoi(argv[3]);
-        double freq = atof(argv[4]);
+        if (argc != 6)
+        {
+            printf("pub id payload exec_time freq\n");
+            return 1;
+        }
 
-        run_publisher(payload, exec_time, freq);
+        run_publisher(
+            atoi(argv[2]),
+            atoi(argv[3]),
+            atoi(argv[4]),
+            atof(argv[5]));
     }
 
     return 0;
