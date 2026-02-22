@@ -6,11 +6,14 @@ PAYLOAD=$3
 EXEC_TIME=$4
 FREQ=$5
 
-echo "Building Rust project..."
+echo "Compiling Rust client..."
 cargo build --release
 
-CLIENT_BIN="../target/release/client"
+CLIENT_BIN="./target/release/client"
 
+# ================================
+# Guardar PIDs
+# ================================
 SUB_PIDS=()
 PUB_PIDS=()
 
@@ -18,7 +21,7 @@ echo "Starting subscribers..."
 
 for ((i=0;i<NUM_SUB;i++))
 do
-    "$CLIENT_BIN" sub &
+    $CLIENT_BIN sub &
     SUB_PIDS+=($!)
 done
 
@@ -28,17 +31,25 @@ echo "Starting publishers..."
 
 for ((i=0;i<NUM_PUB;i++))
 do
-    "$CLIENT_BIN" pub "$PAYLOAD" "$EXEC_TIME" "$FREQ" &
+    $CLIENT_BIN pub "$PAYLOAD" "$EXEC_TIME" "$FREQ" &
     PUB_PIDS+=($!)
 done
 
-echo "Waiting publishers..."
+# ================================
+# Esperar publishers
+# ================================
+echo "Waiting publishers to finish..."
 
 for pid in "${PUB_PIDS[@]}"
 do
     wait $pid
 done
 
+echo "Publishers finished."
+
+# ================================
+# Terminar subscribers
+# ================================
 echo "Stopping subscribers..."
 
 for pid in "${SUB_PIDS[@]}"
