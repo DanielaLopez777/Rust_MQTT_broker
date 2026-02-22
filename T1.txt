@@ -1,0 +1,17 @@
+Compiling...
+Starting subscribers...
+Starting publishers...
+Waiting publishers to finish...
+Publisher 1 sent 200733 messages
+Publisher 2 sent 200071 messages
+Publisher 9 sent 200581 messages
+Publisher 8 sent 200174 messages
+Publisher 0 sent 200861 messages
+Publisher 4 sent 200467 messages
+Publisher 7 sent 200103 messages
+Publisher 5 sent 200752 messages
+Publisher 3 sent 200558 messages
+Publisher 6 sent 200345 messages
+Publishers finished.
+Stopping subscribers...
+Test finished successfully.

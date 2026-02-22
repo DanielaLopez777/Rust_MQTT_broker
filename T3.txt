@@ -1,0 +1,37 @@
+Compiling...
+Starting subscribers...
+Starting publishers...
+Waiting publishers to finish...
+Publisher 0 sent 191301 messages
+Publisher 6 sent 192500 messages
+Publisher 3 sent 192095 messages
+Publisher 4 sent 192475 messages
+Publisher 1 sent 190545 messages
+Publisher 5 sent 192270 messages
+Publisher 7 sent 192788 messages
+Publisher 8 sent 191938 messages
+Publisher 2 sent 191244 messages
+Publisher 9 sent 192849 messages
+Publisher 10 sent 193006 messages
+Publisher 11 sent 192842 messages
+Publisher 12 sent 192706 messages
+Publisher 15 sent 192067 messages
+Publisher 17 sent 192266 messages
+Publisher 16 sent 192400 messages
+Publisher 13 sent 193112 messages
+Publisher 14 sent 192443 messages
+Publisher 22 sent 192428 messages
+Publisher 19 sent 192443 messages
+Publisher 24 sent 192769 messages
+Publisher 20 sent 192472 messages
+Publisher 26 sent 192816 messages
+Publisher 28 sent 192102 messages
+Publisher 18 sent 192322 messages
+Publisher 23 sent 192704 messages
+Publisher 29 sent 191999 messages
+Publisher 21 sent 192229 messages
+Publisher 27 sent 192581 messages
+Publisher 25 sent 192327 messages
+Publishers finished.
+Stopping subscribers...
+Test finished successfully.
