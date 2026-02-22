@@ -161,13 +161,11 @@ fn handle_client(
                             // Add client to the topic subscriptions
                             let mut subscriptions = topic_subscriptions.lock().unwrap();
                             for topic in packet.topic_filters.iter() {
-                                if ["General", "Status", "Random"].contains(&topic.as_str()) {
-                                    subscriptions
-                                        .entry(topic.clone())
-                                        .or_insert_with(Vec::new)
-                                        .push(stream.try_clone().unwrap());
-                                    println!("A client added to topic list: {}\n", topic);
-                                }
+                                subscriptions
+                                    .entry(topic.clone())
+                                    .or_insert_with(Vec::new)
+                                    .push(stream.try_clone().unwrap());
+                                println!("A client added to topic list: {}\n", topic);
                             }
                         }
                     }
