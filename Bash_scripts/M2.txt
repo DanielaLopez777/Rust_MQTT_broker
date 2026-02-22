@@ -1,0 +1,32 @@
+Compiling...
+Starting subscribers...
+Starting publishers...
+Waiting publishers to finish...
+Publisher 1 sent 30000 messages
+Publisher 2 sent 30000 messages
+Publisher 0 sent 30001 messages
+Publisher 7 sent 30000 messages
+Publisher 6 sent 30001 messages
+Publisher 9 sent 30000 messages
+Publisher 4 sent 30000 messages
+Publisher 3 sent 30000 messages
+Publisher 8 sent 30000 messages
+Publisher 14 sent 30000 messages
+Publisher 10 sent 30000 messages
+Publisher 13 sent 30000 messages
+Publisher 12 sent 30000 messages
+Publisher 5 sent 30000 messages
+Publisher 11 sent 30000 messages
+Publisher 15 sent 30001 messages
+Publisher 21 sent 30000 messages
+Publisher 17 sent 30000 messages
+Publisher 22 sent 30000 messages
+Publisher 16 sent 30000 messages
+Publisher 24 sent 30000 messages
+Publisher 20 sent 30000 messages
+Publisher 23 sent 30000 messages
+Publisher 19 sent 30000 messages
+Publisher 18 sent 30000 messages
+Publishers finished.
+Stopping subscribers...
+Test finished successfully.
